@@ -17,7 +17,7 @@
 
 ## 🗺️ Documentation & Implementation Plan
 
-- Xem chi tiết yêu cầu kiến trúc **Live Source DB $\rightarrow$ Synthetic DB $\rightarrow$ NVIDIA Auto-Ontology**, cơ chế **Smart Incremental & Semantic Evolution** và kế hoạch **8 Test Suites** tại [`ARCHITECTURE_AND_EVAL_PLAN.md`](ARCHITECTURE_AND_EVAL_PLAN.md).
+- **Bắt đầu từ [`PLAN.md`](PLAN.md)** — plan tổng theo bước: `lab clone` → `lab import` → `lab discover` → `lab ask` → `lab evolve` → `lab report`.
 - [`docs/UPSTREAM_ARCHITECTURE.md`](docs/UPSTREAM_ARCHITECTURE.md) — kiến trúc thật của Auto-Ontology đọc từ source (`c447003f`) và `auto-ontology-eval` (`ec41b2c5`), kèm hệ quả cho lab.
 - [`docs/LAB_PLAN.md`](docs/LAB_PLAN.md) — plan vận hành lab: phase, metric, protocol schema evolution, điều chỉnh sau khi đọc source.
 - [`docs/STEP1_CLONE_PLAN.md`](docs/STEP1_CLONE_PLAN.md) — plan triển khai bước 1: `lab clone` (prod DB → synthetic DB).
