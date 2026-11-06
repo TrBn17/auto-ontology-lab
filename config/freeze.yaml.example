@@ -1,0 +1,32 @@
+# Đóng băng môi trường lab. Copy thành freeze.yaml và điền model thật đang chạy.
+frozen_at: "2026-11-07"
+upstream:
+  auto_ontology:
+    repo: https://github.com/NVIDIA/auto-ontology
+    commit: c447003f72a822301e927196a4ecb5b597c308d5
+    version: "1.2.0"
+    alembic_head: 99d4d343dd0b
+  auto_ontology_eval:
+    repo: https://github.com/NVIDIA/auto-ontology-eval
+    commit: ec41b2c5b795637759297b90c1d19b42693200f9
+    pins_auto_ontology_commit: dd78d0689ef9a8e062af90a294fa903cb6643015   # KHÁC commit stack — xem UPSTREAM_ARCHITECTURE.md §6
+    nemo_gym: "0.7.0"
+models:   # mọi role phải điền tường minh; EMBED phải giống nhau giữa ingestion và backend
+  reasoning:     {endpoint: "", model: ""}
+  non_reasoning: {endpoint: "", model: ""}
+  embed:         {endpoint: "", model: ""}
+  rerank:        {endpoint: "", model: ""}   # không dùng khi trả lời, chỉ compile
+  gym_control:   {endpoint: "", model: ""}   # phải = reasoning để công bằng
+flags:
+  semantic_compilation_enabled: true
+  pii_detection_enabled: true
+  distinct_value_probing_enabled: true
+  sql_query_timeout_seconds: 30
+  INTERACTIVE: false
+  DB_PROBE_PROACTIVE: false
+  DB_PROBE_JOIN_PATH_CHECK: false
+  LLM_MAX_INFLIGHT: 6
+endpoints:
+  gateway: http://localhost:3000        # đường production duy nhất cho client lab
+  ingestion_internal: http://localhost:3002   # CHỈ dùng trong suite4 (/ingest, /semantic/reset, /semantic/status)
+containers: {postgres: postgres, backend: auto-ontology, ingestion: ingestion-service, frontend: frontend}
