@@ -29,11 +29,12 @@ flowchart LR
 ## Pipeline Steps
 
 ### Step 1 — `lab clone` · Production $\rightarrow$ Synthetic
-- **Command:** `python -m lab clone --from <prod ro url> --to <local url> --out datasets/<name> --scale 0.1 --seed 42`
-- **Extracted from production:** DDL + aggregates (row count, null rate, distinct count, min/max) + categorical frequency distributions for non-PII text columns with $\le 50$ distinct values. Zero raw production rows leave the source.
-- **Outputs:** `datasets/<name>/{profile.json, ddl/, data/*.csv, seed.sql, manifest.json, validate_report.json}` and a populated target PostgreSQL database.
-- **Done when:** `validate` passes (100% FK integrity, null rate within $\pm 3\text{pp}$, categorical $L_1$ distance $\le 0.10$) on `hahlex-edu`.
-- **Plan:** [`docs/STEP1_CLONE_PLAN.md`](docs/STEP1_CLONE_PLAN.md) — completed.
+- **Command:** `python -m lab clone --from-env LAB_SOURCE_DSN --to-env LAB_TARGET_DSN --out datasets/<name> --scale 0.1 --seed 42`
+- **Extracted from production:** DDL + numeric/date aggregates + text length/null statistics. No text values by default; categorical values only from enums, `CHECK ... IN` literals, or a human-reviewed allowlist (`--profile-only` prints candidates). Generation never connects to the source.
+- **Engine:** chosen first by running candidates (seedgen as-is, wrapped by a Python adapter) through the acceptance suite; fallback is a Python generator. No Rust toolchain in the lab.
+- **Outputs:** `datasets/<name>/{profile.json, ddl/, data/*.csv, manifest.json (with load_order and composite FKs), validate_report.json}` and a populated target DB with a read-only `lab_ro` role.
+- **Done when:** acceptance checks A1–A10 pass (canary absent everywhere, all FKs incl. composite preserved, size-aware null/L1 thresholds, deterministic, importable into Auto-Ontology) — first on the in-repo fixture, then on a real internal database. Unsatisfiable CHECKs are dropped and reported as **degraded** (exit code 2), never silently.
+- **Plan:** [`docs/STEP1_CLONE_PLAN.md`](docs/STEP1_CLONE_PLAN.md).
 
 ### Step 2 — `lab import` · Synthetic $\rightarrow$ Auto-Ontology
 - **Command:** `python -m lab import --dataset <name> [--drop]`
@@ -94,7 +95,7 @@ Generate `reports/RESULTS.md` automatically from `reports/runs/`: environment fr
 
 | Week | Scope | Verifiable Milestone |
 |---|---|---|
-| 1 | Steps 1, 2 | `lab clone` passes validation on `hahlex-edu`; `lab import` exports the first ontology YAML |
+| 1 | Steps 1, 2 | Engine decided; `lab clone` passes A1–A10 on the fixture, then on a real internal DB; `lab import` exports the first ontology YAML |
 | 2 | Steps 3, 4 | Discovery F1 + 3-mode Text-to-SQL accuracy table on `edu-public` |
 | 3 | Step 5 (vanilla) | $8 \times 3$ vanilla schema evolution matrix |
 | 4 | Step 5 (patch), Steps 6, 7 | Patch evolution matrix, `RESULTS.md`, and final write-up |
