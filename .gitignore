@@ -1,0 +1,23 @@
+# Local generated datasets (never publish to Git)
+/datasets/*
+!/datasets/.gitkeep
+
+# Environment variables & API keys
+.env
+.env.*
+!.env.example
+auto-ontology/.env
+auto-ontology/.env.*
+!auto-ontology/.env.example
+
+# Python cache & virtual environments
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+
+# OS / Editor files
+.DS_Store
+Thumbs.db
