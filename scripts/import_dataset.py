@@ -310,12 +310,15 @@ if do_compile:
     from auto_ontology.infra.postgres import get_postgres_connection_string
     with psycopg.connect(get_postgres_connection_string(), autocommit=True) as conn:
         for _ in range(60):
-            row = conn.execute(
-                "SELECT count(*) FROM data_objects_layer WHERE metadata->>'database_name' = %s",
-                (db_name,),
-            ).fetchone()
-            if row and row[0] > 0:
-                break
+            try:
+                row = conn.execute(
+                    "SELECT count(*) FROM vdb.data_objects_layer WHERE database_name = %s",
+                    (db_name,),
+                ).fetchone()
+                if row and row[0] > 0:
+                    break
+            except Exception:
+                pass
             time.sleep(1)
         conn.execute(
             \"\"\"
