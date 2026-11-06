@@ -17,15 +17,15 @@
 
 ## 🗺️ Documentation & Implementation Plan
 
-- **Bắt đầu từ [`PLAN.md`](PLAN.md)** — plan tổng theo bước: `lab clone` → `lab import` → `lab discover` → `lab ask` → `lab evolve` → `lab report`.
-- [`docs/UPSTREAM_ARCHITECTURE.md`](docs/UPSTREAM_ARCHITECTURE.md) — kiến trúc thật của Auto-Ontology đọc từ source (`c447003f`) và `auto-ontology-eval` (`ec41b2c5`), kèm hệ quả cho lab.
-- [`docs/LAB_PLAN.md`](docs/LAB_PLAN.md) — plan vận hành lab: phase, metric, protocol schema evolution, điều chỉnh sau khi đọc source.
-- [`docs/STEP1_CLONE_PLAN.md`](docs/STEP1_CLONE_PLAN.md) — plan triển khai bước 1: `lab clone` (prod DB → synthetic DB).
-- [`config/freeze.yaml.example`](config/freeze.yaml.example) — mẫu đóng băng commit/model/flag.
+- [`PLAN.md`](PLAN.md) — Master pipeline overview: end-to-end workflow (`lab clone` $\rightarrow$ `lab import` $\rightarrow$ `lab discover` $\rightarrow$ `lab ask` $\rightarrow$ `lab evolve` $\rightarrow$ `lab report`), core principles, and schedule.
+- [`docs/UPSTREAM_ARCHITECTURE.md`](docs/UPSTREAM_ARCHITECTURE.md) — Ground-truth architecture of Auto-Ontology analyzed directly from upstream source (`c447003f`) and `auto-ontology-eval` (`ec41b2c5`), along with design implications for the lab.
+- [`docs/LAB_PLAN.md`](docs/LAB_PLAN.md) — Operational lab plan: phases, metrics, schema evolution protocol, and methodological adjustments derived from source analysis.
+- [`docs/STEP1_CLONE_PLAN.md`](docs/STEP1_CLONE_PLAN.md) — Step 1 implementation plan: `lab clone` (production DB $\rightarrow$ privacy-preserving synthetic DB).
+- [`config/freeze.yaml.example`](config/freeze.yaml.example) — Configuration template for pinning upstream commits, model endpoints, and runtime flags.
 
 ---
 
-## 📥 Import dataset into Auto-Ontology
+## 📥 Import Dataset into Auto-Ontology
 
 Once your synthetic dataset is generated under `datasets/<project-name>/` (containing `schema.sql`, `seed.sql`, and optionally `validate.sql`), import it directly into the running Auto-Ontology instance with [`scripts/import_dataset.py`](scripts/import_dataset.py):
 

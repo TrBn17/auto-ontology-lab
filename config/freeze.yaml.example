@@ -1,4 +1,4 @@
-# Đóng băng môi trường lab. Copy thành freeze.yaml và điền model thật đang chạy.
+# Freeze the lab environment. Copy to freeze.yaml and fill in the exact models running in your stack.
 frozen_at: "2026-11-07"
 upstream:
   auto_ontology:
@@ -9,14 +9,14 @@ upstream:
   auto_ontology_eval:
     repo: https://github.com/NVIDIA/auto-ontology-eval
     commit: ec41b2c5b795637759297b90c1d19b42693200f9
-    pins_auto_ontology_commit: dd78d0689ef9a8e062af90a294fa903cb6643015   # KHÁC commit stack — xem UPSTREAM_ARCHITECTURE.md §6
+    pins_auto_ontology_commit: dd78d0689ef9a8e062af90a294fa903cb6643015   # DIFFERS from stack commit — see UPSTREAM_ARCHITECTURE.md §6
     nemo_gym: "0.7.0"
-models:   # mọi role phải điền tường minh; EMBED phải giống nhau giữa ingestion và backend
+models:   # Every role must be explicitly specified; EMBED must match between ingestion and backend
   reasoning:     {endpoint: "", model: ""}
   non_reasoning: {endpoint: "", model: ""}
   embed:         {endpoint: "", model: ""}
-  rerank:        {endpoint: "", model: ""}   # không dùng khi trả lời, chỉ compile
-  gym_control:   {endpoint: "", model: ""}   # phải = reasoning để công bằng
+  rerank:        {endpoint: "", model: ""}   # Unused during query answering; used only during compilation
+  gym_control:   {endpoint: "", model: ""}   # Must equal reasoning model for a fair comparison
 flags:
   semantic_compilation_enabled: true
   pii_detection_enabled: true
@@ -27,6 +27,6 @@ flags:
   DB_PROBE_JOIN_PATH_CHECK: false
   LLM_MAX_INFLIGHT: 6
 endpoints:
-  gateway: http://localhost:3000        # đường production duy nhất cho client lab
-  ingestion_internal: http://localhost:3002   # CHỈ dùng trong suite4 (/ingest, /semantic/reset, /semantic/status)
+  gateway: http://localhost:3000        # Only production entrypoint for lab clients
+  ingestion_internal: http://localhost:3002   # ONLY used in Suite 4 (/ingest, /semantic/reset, /semantic/status)
 containers: {postgres: postgres, backend: auto-ontology, ingestion: ingestion-service, frontend: frontend}

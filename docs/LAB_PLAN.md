@@ -1,139 +1,139 @@
-# Auto-Ontology Lab — Kế hoạch thực nghiệm hoàn chỉnh
+# Auto-Ontology Lab — Comprehensive Experimental Plan
 
-> Tài liệu này là phần chi tiết của [`../PLAN.md`](../PLAN.md): metric, protocol, rủi ro. Đọc `PLAN.md` trước; ở đây "suite", "arm", "T0–T4" chỉ là nhãn tham chiếu khi viết code.
+> This document provides the detailed operational specification for [`../PLAN.md`](../PLAN.md): evaluation metrics, experimental protocols, and risk mitigations. Read `PLAN.md` first; terms like "suite", "arm", and "T0–T4" used here serve as reference identifiers for the codebase.
 
-> **Bản sửa đổi sau khi đọc source upstream** (xem `UPSTREAM_ARCHITECTURE.md`). Các mục dưới đây **ghi đè** phần tương ứng bên dưới khi có xung đột.
+> **Revision Note (Post-Upstream Source Audit):** See [`UPSTREAM_ARCHITECTURE.md`](UPSTREAM_ARCHITECTURE.md). Whenever a discrepancy arises, the mandatory adjustments in **Section 0a** below **override** the corresponding sections later in this document.
 
 ---
 
-## 0a. Điều chỉnh bắt buộc từ phân tích source
+## 0a. Mandatory Adjustments from Upstream Source Analysis
 
-| Mục cũ | Điều chỉnh | Lý do (ref `UPSTREAM_ARCHITECTURE.md`) |
+| Original Section | Adjustment | Rationale (Ref: `UPSTREAM_ARCHITECTURE.md`) |
 |---|---|---|
-| §5.2 — 3 arm A/B/C | Thêm **arm C' = production gateway** (`POST :3000/api/chat/completions`, `x-api-key`, tuần tự). Headline so sánh là **A vs B vs C'**; C (harness) chỉ để đối chiếu với số NVIDIA. | §0.3 — harness bật `validate_sql_values`, `calculation_only` mà production không có |
-| §5.3 — chạy harness | Harness pin `dd78d068`; stack lab pin `c447003f`. Thử sửa pin harness; vỡ thì chạy Suite 2-harness trên commit riêng và ghi cả hai trong `freeze.yaml`. | §6 |
-| §6.1 — export để diff | Export YAML **+ sort** `foreign_keys`, `joins`, `semantic_fks` **+ GET** `/api/terms`, `/column-attributes`, `/api/sql-attributes` để lấy cờ certified và synonyms. | §0.7 |
-| §7.2 — T1 "chờ 10 phút" | Bỏ. Thay: **T1 = ghi nhận không có cơ chế phát hiện** (scheduler 24h hard-code, không public re-ingest). Chạy **một** lần chờ qua chu kỳ 24h cho m01 để có bằng chứng thực nghiệm. T2 = `POST :3002/ingest`. T3 = `POST /api/semantic-compilation/trigger`. T4 = `POST :3002/semantic/reset?database_name=`. | §0.5, §8 |
-| §7.2 — certify 3 term | Vẫn certify (đo retention), **nhưng thêm** 3 chỉnh sửa **nội dung** (description, sample_values, 1 sql attribute manual) vì chỉ nội dung mới ảnh hưởng câu trả lời. Đo cả hai loại còn/mất qua T2–T4. | §0.1, §0.6 |
-| §7.1 — kỳ vọng vanilla | Nay có bằng chứng code cho m01–m05 (test của NVIDIA xác nhận rename = drop+add; bảng có Term không compile lại). Ghi vào `expected.json` với ref file:line. Lab đo **tác động lên câu trả lời**, không "phát hiện" bug. | §2.2 |
-| §4.1 — spec traps | Ràng buộc generator: bẫy trong **1000 dòng đầu**; enum là text ≤ 25 distinct, giá trị ≤ 30 ký tự; semantic_fk trap phải có giá trị chung và cột đích `is_unique`; cột ngày **không có sample** → `ambiguous_date` chỉ test qua tên + description. | §2.3 hệ quả |
-| §9 Suite 6 | Tách 2 phần: (a) coverage từ `/api/question-entity-coverage`; (b) chat trả SQL hay abstain trên 30 câu unanswerable — kỳ vọng **luôn trả SQL** vì `sql_code` NonEmpty. Thêm metric "SQL chạy được nhưng vô nghĩa". | §0.2 |
-| §9 Suite 8 | Thu lại thành 1 test: bật PII → kiểm tra sample value của cột email/phone có trong `catalog_column.sample_values` và text `vdb.semantic_layer`. Bỏ tenant isolation (zones không phải ranh giới phân quyền). | §0.8, §0.9 |
-| §9 Suite 5 | Postgres chỉ đọc `pg_stat_activity` 24h → chạy workload **ngay trước** `:3002/ingest`. Ghi rõ `_usage_score` luôn 0 nên ranking theo tần suất không hoạt động. | §2.3 |
-| §9 Suite 7 | Token/cost không được ghi → đặt proxy log trước `*_ENDPOINT`. Latency từ `GET /api/analytics`, filter `source=lab-*`. Chạy **tuần tự** (1 warm worker). | §0.10 |
-| §11 `import_dataset.py` | Chuyển mọi call sang `:3000` + `x-api-key`; bật compile qua `PUT /api/configurations/semantic-compilation`; `CONNECTION_STRINGS` để rỗng. Giữ `:3002/ingest` chỉ trong `eval/suite4_evolution/`. | §1, §7 |
-| §3 Phase 0 | Snapshot thêm `frontend.configurations`, `frontend.conversation_analytics`, `semantic_compilation_history`. Tạo 1 viewer + token. Role Postgres read-only cho source. | §7 |
+| §5.2 — 3 arms (A/B/C) | Add **Arm C' = production gateway** (`POST :3000/api/chat/completions`, `x-api-key`, sequential execution). The headline comparison becomes **A vs. B vs. C'**; Arm C (harness) is retained strictly for parity comparison against NVIDIA's published numbers. | §0.3 — The eval harness enables `validate_sql_values` and `calculation_only`, which are unavailable in production HTTP routes. |
+| §5.3 — Running the harness | The eval harness pins `dd78d068`, whereas the lab stack pins `c447003f`. Attempt to bump the harness pin first; if incompatible, run Suite 2 (harness) against its dedicated commit and record both hashes in `freeze.yaml`. | §6 |
+| §6.1 — Exporting for diff | Export YAML **+ sort** `foreign_keys`, `joins`, and `semantic_fks` **+ GET** `/api/terms`, `/column-attributes`, and `/api/sql-attributes` to retrieve `certified` flags and synonyms. | §0.7 |
+| §7.2 — T1 "wait 10 minutes" | Removed. Replaced with: **T1 = document absence of auto-detection** (the 24h scheduler is hardcoded and no public re-ingest API exists). Run a **single** 24h wait test on `m01` for empirical verification. `T2` = `POST :3002/ingest`. `T3` = `POST /api/semantic-compilation/trigger`. `T4` = `POST :3002/semantic/reset?database_name=`. | §0.5, §8 |
+| §7.2 — Certify 3 terms | Keep certification (to measure flag retention), **but add** 3 **content** edits (`description`, `sample_values`, and 1 manual SQL attribute) because only content modifications influence query generation. Measure survival of both categories across `T2`–`T4`. | §0.1, §0.6 |
+| §7.1 — Vanilla expectations | Now backed by direct source code evidence for `m01`–`m05` (NVIDIA's own unit tests confirm `rename = drop + add`, and tables with an existing `Term` are skipped during compilation). Record exact `file:line` references in `expected.json`. The lab measures the **downstream impact on query answers**, rather than merely "discovering" the bug. | §2.2 |
+| §4.1 — Spec traps | Generator constraints: traps must appear within the **first 1,000 rows**; enums must be `text` with $\le 25$ distinct values and length $\le 30$ characters; `semantic_fk` traps require overlapping values and an `is_unique` target column; date columns **never include sample values** $\rightarrow$ `ambiguous_date` is tested strictly via column names and descriptions. | §2.3 implications |
+| §9 Suite 6 | Split into two parts: (a) coverage scores from `/api/question-entity-coverage`; (b) whether chat returns SQL or abstains across 30 unanswerable questions — expected to **always return SQL** because `sql_code` is typed as `NonEmptyStr`. Add metric: "executable but semantically meaningless SQL". | §0.2 |
+| §9 Suite 8 | Condense into a single test: enable PII detection $\rightarrow$ verify whether raw sample values of email/phone columns appear in `catalog_column.sample_values` and `vdb.semantic_layer` text. Drop tenant isolation testing (zones are not enforced as authorization boundaries). | §0.8, §0.9 |
+| §9 Suite 5 | PostgreSQL query ingestion only reads `pg_stat_activity` (24h window) $\rightarrow$ execute the query workload **immediately before** calling `:3002/ingest`. Explicitly note that `_usage_score` always returns `0`, so frequency-based ranking is non-functional. | §2.3 |
+| §9 Suite 7 | Token usage and cost are not logged upstream $\rightarrow$ place a logging proxy in front of `*_ENDPOINT`. Extract latency from `GET /api/analytics` filtered by `source=lab-*`. Execute queries **sequentially** (single warm worker). | §0.10 |
+| §11 `import_dataset.py` | Route all calls through `:3000` + `x-api-key`; enable compilation via `PUT /api/configurations/semantic-compilation`; leave `CONNECTION_STRINGS` empty. Restrict `:3002/ingest` usage strictly to `eval/suite4_evolution/`. | §1, §7 |
+| §3 Phase 0 | Include `frontend.configurations`, `frontend.conversation_analytics`, and `semantic_compilation_history` in catalog snapshots. Provision 1 viewer user + token, plus a read-only PostgreSQL role for the source DB. | §7 |
 
 ---
 
-## 0. Định vị
+## 0. Positioning & Research Questions
 
-Lab trả lời 3 câu hỏi, theo đúng thứ tự ưu tiên:
+The lab answers three core questions, ordered by priority:
 
-| # | Câu hỏi | Ai đã trả lời? |
+| # | Research Question | Previously Answered? |
 |---|---|---|
-| Q1 | Ontology sinh tự động **đúng đến đâu** (entities / relationships / terms) so với ground truth? | Chưa ai — benchmark public không có ground truth ontology |
-| Q2 | Khi schema thay đổi, Auto-Ontology **tự phát hiện / tự cập nhật / cần rebuild**, và certified edits có sống không? Sau khi áp **patch của lab**, cải thiện bao nhiêu? | NVIDIA tự thừa nhận chưa (issue #258 mở, #259, #260) |
-| Q3 | Ontology cải thiện Text-to-SQL **bao nhiêu và ở loại câu nào**, trên domain giáo dục? | NVIDIA đã trả lời cho BIRD/BEAVER — lab **tái sử dụng harness của họ**, chỉ đổi dataset và thêm breakdown theo category |
+| **Q1** | How accurate is the **automatically discovered ontology** (entities / relationships / business terms) compared against a known ground truth? | **No** — public Text-to-SQL benchmarks lack ground-truth ontology manifests. |
+| **Q2** | When the underlying database schema evolves, does Auto-Ontology **auto-detect, incrementally update, or require a full rebuild**, and do certified human edits survive? How much does the **lab's sidecar patch** improve resilience? | **NVIDIA acknowledges this gap** (open issues #258, #259, #260). |
+| **Q3** | How much does the compiled ontology improve **Text-to-SQL accuracy** — and on which specific question categories — within an education domain? | Answered by NVIDIA on BIRD/BEAVER — the lab **reuses their evaluation harness**, swapping in our domain dataset and adding category-level breakdowns + Arm B/C'. |
 
-Mọi thứ khác (performance, security, governance) là **phụ lục**, không phải finding chính.
+All other evaluations (latency/cost, PII leakage, query-log learning) serve as **supplementary appendices** rather than primary findings.
 
-### Hai chế độ của lab
+### Two Operating Modes
 
-- **Audit mode**: Auto-Ontology nguyên bản (vanilla), pin commit. Không can thiệp.
-- **Patch mode**: vanilla + `smart_evolve.py` chạy như sidecar. Mọi kết quả Patch mode **phải** có kết quả Audit mode tương ứng đặt cạnh.
+- **Audit Mode (Vanilla):** Unmodified upstream Auto-Ontology at the pinned commit. Zero intervention.
+- **Patch Mode:** Vanilla Auto-Ontology + `smart_evolve.py` running as an external sidecar. Every Patch Mode metric **must** be presented side-by-side with its corresponding Audit Mode baseline.
 
-Không bao giờ công bố số của Patch mode mà không có baseline.
-
----
-
-## 1. Nguyên tắc phương pháp (bất biến)
-
-1. **Pin mọi thứ**: commit hash `NVIDIA/auto-ontology`, commit hash `NVIDIA/auto-ontology-eval`, tên + version 4 model role (REASONING / NON_REASONING / EMBED / RERANK), `.env` đã ẩn secret. Ghi vào `config/freeze.yaml`. Mọi report trích dẫn file này.
-2. **Baseline trước, patch sau**: Suite 4 chạy vanilla đến hết, lưu kết quả, rồi mới bật patch.
-3. **≥ 3 lượt** cho mọi số có LLM tham gia. Báo mean ± std và số câu flip đúng↔sai giữa các lượt.
-4. **Gold SQL phải chạy được** trên DB synthetic và trả về kết quả không rỗng (trừ nhóm unanswerable). Không nhận SQL do LLM sinh mà chưa execute.
-5. **Dataset public là bắt buộc**: ít nhất một dataset spec-first commit vào repo. Dataset nội bộ (`hahlex-edu`, `language-learning-sandbox`) giữ gitignore.
-6. **Không sửa catalog bằng tay** trong lúc đo. Mọi can thiệp đi qua script có log.
-7. **Reset được**: trước mỗi suite, restore catalog DB về snapshot `T0` bằng `pg_dump`/`pg_restore`. Không "chạy tiếp" trên trạng thái đã bị suite trước làm bẩn.
+Never publish Patch Mode numbers without the vanilla baseline.
 
 ---
 
-## 2. Cấu trúc repo mục tiêu
+## 1. Methodological Principles (Invariants)
 
-```
+1. **Pin everything:** Commit hash of `NVIDIA/auto-ontology`, commit hash of `NVIDIA/auto-ontology-eval`, model names and versions across all 4 roles (`REASONING`, `NON_REASONING`, `EMBED`, `RERANK`), and sanitized `.env` settings. Record all parameters in `config/freeze.yaml` and cite this file in every generated report.
+2. **Baseline first, patch second:** Run Suite 4 in vanilla Audit Mode to completion and persist all artifacts before enabling the sidecar patch.
+3. **$\ge 3$ runs** for every evaluation involving an LLM. Report `mean ± std` as well as the number of questions that flip between correct and incorrect across runs.
+4. **Executable Gold SQL:** Every gold SQL query must execute cleanly against the synthetic database and return a non-empty result set (except for the `unanswerable` test set). Never accept LLM-generated gold SQL without execution verification.
+5. **Mandatory public dataset:** Commit at least one spec-first dataset (`edu-public`) to the repository for full reproducibility. Keep internal datasets (`hahlex-edu`, `language-learning-sandbox`) gitignored.
+6. **No manual catalog tampering** during evaluation runs. Every state change must be executed via logged, deterministic scripts.
+7. **Deterministic reset:** Before starting any suite, restore the catalog database to snapshot `T0` via `pg_dump`/`pg_restore`. Never chain suites on top of a mutated catalog state.
+
+---
+
+## 2. Target Repository Layout
+
+```text
 auto-ontology-lab/
 ├── config/
-│   ├── freeze.yaml              # commit hashes, model names, container names
-│   └── lab.env.example          # URL backend/ingestion, pg creds (không secret thật)
+│   ├── freeze.yaml              # Commit hashes, model names, container names
+│   └── lab.env.example          # Backend/ingestion URLs, PG credentials (no real secrets)
 ├── spec/
 │   └── edu_public.yaml          # GROUND TRUTH: entities, relationships, terms, traps
 ├── generators/
 │   ├── from_spec.py             # spec.yaml → schema.sql + seed.sql + manifest.json
-│   ├── source_introspector.py   # (Tầng 1) live DB → profile.json, không copy PII
-│   └── synthetic_generator.py   # (Tầng 2) profile.json → DDL + fake data
+│   ├── source_introspector.py   # (Layer 1) Live DB → profile.json (zero PII copied)
+│   └── synthetic_generator.py   # (Layer 2) profile.json → DDL + synthetic data
 ├── datasets/
-│   ├── edu-public/              # COMMIT — sinh từ spec, tái lập được
+│   ├── edu-public/              # COMMITTED — generated from spec, fully reproducible
 │   │   ├── schema.sql
 │   │   ├── seed.sql
-│   │   ├── manifest.json        # ground truth ontology (copy từ spec, dạng phẳng)
-│   │   ├── evaluation.json      # format của auto-ontology-eval
-│   │   ├── metadata.json        # mô tả cột — dùng cho arm "schema+metadata"
-│   │   └── mutations/           # m01..m08 (SQL) + expected.json
-│   └── hahlex-edu/              # GITIGNORE — từ DB nội bộ
+│   │   ├── manifest.json        # Ground-truth ontology (flattened from spec)
+│   │   ├── evaluation.json      # auto-ontology-eval compatible question set
+│   │   ├── metadata.json        # Column descriptions — used for Arm B ("schema+metadata")
+│   │   └── mutations/           # m01..m08 (SQL scripts) + expected.json
+│   └── hahlex-edu/              # GITIGNORED — cloned from internal DB
 ├── questions/
-│   ├── templates/               # template câu hỏi theo category
-│   └── build_evaluation.py      # template × tham số → evaluation.json, validate gold SQL
+│   ├── templates/               # Question templates organized by category
+│   └── build_evaluation.py      # Templates × parameters → evaluation.json + gold SQL validation
 ├── eval/
-│   ├── suite1_discovery/        # export ontology → diff manifest → P/R/F1
-│   ├── suite2_text2sql/         # wrapper gọi auto-ontology-eval, thêm arm thứ 3
-│   ├── suite4_evolution/        # mutation runner, T0–T3 protocol
-│   ├── suite5_learning/         # seed query log → đo SQL attribute sinh ra
-│   ├── suite6_abstention/       # check_answerable trên câu unanswerable/ambiguous
-│   └── common/                  # snapshot/restore catalog, poll readiness, export
+│   ├── suite1_discovery/        # Export ontology → diff against manifest → P/R/F1
+│   ├── suite2_text2sql/         # Wrapper around auto-ontology-eval + Arm B & Arm C'
+│   ├── suite4_evolution/        # Mutation runner implementing the T0–T4 protocol
+│   ├── suite5_learning/         # Seed query history → measure synthesized SQL attributes
+│   ├── suite6_abstention/       # Entity coverage & chat behavior on unanswerable questions
+│   └── common/                  # Catalog snapshot/restore, readiness polling, YAML export
 ├── patch/
-│   └── smart_evolve.py          # (Tầng 3) sidecar — chỉ bật ở Patch mode
+│   └── smart_evolve.py          # (Layer 3) Out-of-process sidecar — enabled only in Patch Mode
 ├── scripts/
-│   └── import_dataset.py        # đã có — xem §8 để refactor
+│   └── import_dataset.py        # Existing importer — see §11 for refactoring plan
 ├── reports/
-│   ├── runs/<timestamp>/        # raw output mỗi lần chạy
-│   └── RESULTS.md               # bảng tổng hợp, sinh bằng script
+│   ├── runs/<timestamp>/        # Raw artifacts for each execution run
+│   └── RESULTS.md               # Aggregated report generated deterministically by script
 └── docs/
-    └── LAB_PLAN.md              # file này
+    └── LAB_PLAN.md              # This document
 ```
 
 ---
 
-## 3. Phase 0 — Đóng băng môi trường (0.5 ngày)
+## 3. Phase 0 — Environment Freeze (0.5 Days)
 
-**Mục tiêu**: mọi số chạy ra đều quy về một trạng thái duy nhất.
+**Objective:** Ensure every metric produced by the lab traces back to a single immutable software and model state.
 
-- [ ] Ghi `config/freeze.yaml`: commit hash 2 repo NVIDIA, 4 model, container names, ngày đóng băng.
-- [ ] Pin `auto-ontology/` bằng git submodule **hoặc** script `scripts/pin_upstream.sh` checkout đúng hash. Không dựa vào `main`.
-- [ ] Viết `eval/common/snapshot.py`: `pg_dump` catalog DB (schema `vdb`, `frontend`, và các schema Auto-Ontology dùng) → `snapshots/T0_<dataset>.dump`; hàm `restore()`.
-- [ ] Viết `eval/common/readiness.py`: poll `check_readiness` (MCP) hoặc bảng `semantic_compilation_history` cho đến khi compile xong. Dùng chung cho mọi suite.
-- [ ] Xác nhận stack hiện tại (đã import + compile `hahlex-edu`) tạo được snapshot và restore lại chạy bình thường.
+- [ ] Populate `config/freeze.yaml`: commit hashes of both NVIDIA repositories, all 4 model endpoints/names, container names, and freeze date.
+- [ ] Pin `auto-ontology/` via git submodule or `scripts/pin_upstream.sh` to check out the exact commit hash. Do not track floating `main`.
+- [ ] Implement `eval/common/snapshot.py`: run `pg_dump` on the catalog database (schemas `public`, `frontend`, `vdb`, including `frontend.configurations`, `frontend.conversation_analytics`, and `semantic_compilation_history`) $\rightarrow$ `snapshots/T0_<dataset>.dump`, alongside a corresponding `restore()` function.
+- [ ] Implement `eval/common/readiness.py`: poll `GET /api/semantic-compilation/status` and the `semantic_compilation_history` table until compilation finishes. Shared across all evaluation suites.
+- [ ] Verify that the running stack (with `hahlex-edu` imported and compiled) can be snapshotted and restored cleanly.
 
-**Exit**: `restore()` + `readiness()` chạy end-to-end dưới 5 phút, kết quả `ask_question` cho 5 câu smoke test giống hệt trước/sau restore.
+**Exit Criteria:** `restore()` + `readiness()` completes end-to-end in under 5 minutes, and running 5 smoke-test questions before and after restoration yields identical SQL queries.
 
 ---
 
-## 4. Phase 1 — Dataset public spec-first `edu-public` (2 ngày)
+## 4. Phase 1 — Public Spec-First Dataset `edu-public` (2 Days)
 
-### 4.1 Spec là ground truth
+### 4.1 The Specification as Ground Truth
 
-`spec/edu_public.yaml` khai báo:
+`spec/edu_public.yaml` declares:
 
 ```yaml
 entities:
   - name: student
-    table: std_mst            # tên bảng "xấu" cố ý
+    table: std_mst            # Intentionally opaque/abbreviated table name
     description: ...
     key: std_id
 relationships:
   - from: enrollment.std_id
     to: student.std_id
-    kind: fk                  # fk | semantic_fk (không có FK vật lý) | bridge
+    kind: fk                  # fk | semantic_fk (no physical FK constraint) | bridge
 terms:
   - name: attendance_rate
     sql: "SUM(CASE WHEN att.status='present' THEN 1 ELSE 0 END)::float / COUNT(*)"
@@ -150,254 +150,253 @@ traps:
     pairs: [[payment.ref_code, invoice.code]]
 ```
 
-Nguyên tắc chọn bẫy: **mỗi bẫy phải có cơ sở từ schema thật** (Moodle, Canvas, hoặc pattern từ `hahlex-edu`). Ghi nguồn tham chiếu vào field `rationale`. Mục đích là chống lại lời phản bác "domain tự thiết kế để nó fail".
+**Trap design principle:** Every schema trap must be grounded in real-world production schemas (e.g., Moodle, Canvas, or patterns observed in `hahlex-edu`). Document the real-world reference in a `rationale` field to preempt any criticism that the benchmark was artificially engineered to fail.
 
-### 4.2 Generator
+### 4.2 Dataset Generator
 
 `generators/from_spec.py`:
-- Sinh `schema.sql` (DDL đúng spec, bao gồm cột không có FK vật lý khi spec nói `semantic_fk`).
-- Sinh `seed.sql` deterministic (seed cố định), topo-sort theo FK, phân phối thực tế (ví dụ 15–20% buổi học `cancelled`, 5% học viên soft-deleted) để value anchoring có ý nghĩa.
-- Sinh `manifest.json`: spec làm phẳng thành 3 list `entities`, `relationships`, `terms` — đây là file Suite 1 đối chiếu.
-- Sinh `metadata.json` theo format `auto-ontology-eval` (mô tả bảng/cột + sample values).
+- Generates `schema.sql` (exact DDL matching the spec, omitting physical `FOREIGN KEY` constraints where `kind: semantic_fk` is specified).
+- Generates deterministic `seed.sql` / `data/*.csv` (fixed RNG seed), topologically sorted by FK dependencies, with realistic value distributions (e.g., 15–20% `cancelled` class sessions, 5% soft-deleted students) so value anchoring is meaningful. Ensure all traps and enum distributions are represented within the **first 1,000 rows** of each table.
+- Generates `manifest.json`: flattens the specification into three canonical lists (`entities`, `relationships`, `terms`) used as the ground truth for Suite 1.
+- Generates `metadata.json` formatted for `auto-ontology-eval` (table/column descriptions + sample values).
 
-### 4.3 Kích cỡ
+### 4.3 Target Scale
 
-- 12–18 bảng, 1 bridge table, 1–2 view.
-- 20k–100k dòng tổng — đủ để JOIN 4–6 bảng có kết quả không rỗng, đủ nhỏ để ingest + compile < 15 phút.
+- 12–18 tables, 1 bridge table, 1–2 views.
+- 20,000–100,000 total rows — large enough for 4–6 table JOINs to return non-empty results, yet compact enough for ingestion + compilation to finish in under 15 minutes.
 
-**Exit**: `python generators/from_spec.py spec/edu_public.yaml` tạo đủ 4 file; `import_dataset.py --dataset edu-public` import + compile thành công; snapshot `T0_edu-public.dump` tạo xong.
+**Exit Criteria:** `python generators/from_spec.py spec/edu_public.yaml` outputs all 4 artifacts; `import_dataset.py --dataset edu-public` completes ingestion and compilation; snapshot `T0_edu-public.dump` is saved.
 
 ---
 
-## 5. Phase 2 — Bộ câu hỏi + Suite 2 Text-to-SQL (2 ngày)
+## 5. Phase 2 — Question Bank & Suite 2 Text-to-SQL (2 Days)
 
-### 5.1 Bộ câu hỏi
+### 5.1 Question Bank Construction
 
-`questions/templates/*.yaml` theo category; `build_evaluation.py` sinh `evaluation.json`:
+Define parameterized templates in `questions/templates/*.yaml` by category; `build_evaluation.py` compiles them into `evaluation.json`:
 
-| Category | Số câu | Ví dụ | Mục đích |
+| Category | Count | Example Question | Evaluation Objective |
 |---|---|---|---|
-| `simple` | 30 | Có bao nhiêu học viên đang active? | sanity |
-| `join_2_3` | 30 | Doanh thu theo lớp trong Q3 | JOIN cơ bản |
-| `join_4_6` | 25 | Tỉ lệ chuyên cần theo giáo viên theo tháng | JOIN sâu |
-| `business_metric` | 25 | Attendance rate, outstanding tuition, churn | dùng đúng term SQL |
-| `ambiguous_date` | 20 | "Học viên đăng ký tháng 10" (enrolled_at vs created_at) | bẫy ngày |
-| `soft_delete` | 10 | Số học viên (phải loại is_deleted) | bẫy filter ngầm |
-| `no_fk_join` | 10 | JOIN payment↔invoice qua ref_code | semantic FK |
-| `unanswerable` | 20 | Hỏi về khái niệm ngoài schema | Suite 6 |
-| `ambiguous_intent` | 10 | "Lớp nào tốt nhất?" | Suite 6 |
+| `simple` | 30 | How many active students are there? | Baseline sanity check |
+| `join_2_3` | 30 | Total revenue by class in Q3 | Basic multi-table JOINs |
+| `join_4_6` | 25 | Monthly attendance rate by instructor | Deep join path resolution |
+| `business_metric` | 25 | Attendance rate, outstanding tuition, churn | Accurate business formula (`sql_attribute`) usage |
+| `ambiguous_date` | 20 | "Students enrolled in October" (`enrolled_at` vs. `created_at`) | Temporal column disambiguation |
+| `soft_delete` | 10 | Total student count (must filter `is_deleted = false`) | Implicit filter handling |
+| `no_fk_join` | 10 | Join `payment` $\leftrightarrow$ `invoice` via `ref_code` | Implicit `semantic_fk` traversal |
+| `unanswerable` | 20 | Questions referencing concepts absent from the schema | Suite 6 (Abstention) |
+| `ambiguous_intent` | 10 | "Which class is the best?" | Suite 6 (Abstention / Coverage) |
 
-Tổng ≈ 180 câu; 150 có gold SQL, 30 không. Mỗi câu có `question_id`, `category`, `difficulty`, `evidence` (nếu dùng), `SQL`.
+**Total:** ~180 questions (150 answerable with verified gold SQL, 30 unanswerable/ambiguous). Each record includes `question_id`, `category`, `difficulty`, `evidence` (if applicable), and `SQL`.
 
-Validation bắt buộc trong `build_evaluation.py`:
-- Execute gold SQL trên DB synthetic; fail nếu lỗi hoặc rỗng (trừ unanswerable).
-- Với `ambiguous_date`, phải có thêm field `wrong_sql_variants` — SQL dùng cột sai — và khẳng định kết quả **khác** gold. Nếu không khác, bẫy vô dụng, loại câu.
+**Mandatory validation in `build_evaluation.py`:**
+- Execute every gold SQL query against the synthetic DB; fail the build if any query errors out or returns an empty result set (excluding `unanswerable`).
+- For `ambiguous_date` questions, include a `wrong_sql_variants` field (queries using the wrong date column) and assert that their execution results **differ** from the gold SQL result. If they produce identical results, the trap is ineffective and the question is rejected.
 
-### 5.2 Ba arm
+### 5.2 Evaluation Arms
 
-| Arm | Input cho model | Có sẵn trong eval repo? |
+| Arm | Model Input | Built into `auto-ontology-eval`? |
 |---|---|---|
-| A. `schema-only` | DDL thô | Có (control) |
-| B. `schema+metadata` | DDL + `metadata.json` descriptions | **Lab thêm** — tách tác dụng của *mô tả* khỏi *ontology* |
-| C. `ontology` | Auto-Ontology agent | Có (treatment) |
+| **A. `schema-only`** | Raw DDL | Yes (Control) |
+| **B. `schema+metadata`** | Raw DDL + `metadata.json` column descriptions | **Added by Lab** — isolates the benefit of *column descriptions* from the *ontology graph/agent* |
+| **C. `ontology` (Harness)** | Auto-Ontology Python agent (`stream_agent_response`) | Yes (Treatment — uses internal non-production flags) |
+| **C'. `gateway` (Production)** | Sequential HTTP calls to `POST :3000/api/chat/completions` | **Added by Lab** — measures true production path |
 
-Arm B là đóng góp phương pháp: nếu B ≈ C thì giá trị nằm ở mô tả cột, không phải ontology. README eval repo tự thừa nhận delta A→C đo cả workflow.
+**Methodological contribution of Arm B & C':** If $\text{Arm B} \approx \text{Arm C'}$, then the accuracy gain stems primarily from column descriptions rather than ontology compilation. Comparing $\text{Arm C}$ vs. $\text{Arm C'}$ quantifies the gap between NVIDIA's benchmark harness and the shipped production gateway.
 
-### 5.3 Chạy
+### 5.3 Execution Protocol
 
-- Wrapper `eval/suite2_text2sql/run.py` gọi `auto-ontology-eval` với `--database-name edu-public`, `--eval-workers` hợp lý, `--run-dir reports/runs/<ts>/suite2/`.
-- 3 lượt × 3 arm. Giữ `*_aggregate_metrics.json` và `*_failures.jsonl` gốc.
-- Tôn trọng health gate của eval repo (>5% lỗi health → không in headline). Nếu bị gate, giảm `--eval-workers`, không bỏ qua gate.
+- Wrapper `eval/suite2_text2sql/run.py` orchestrates 3 runs $\times$ each arm (`A`, `B`, `C'`, and optionally `C`), saving raw `*_aggregate_metrics.json` and `*_failures.jsonl` under `reports/runs/<ts>/suite2/`.
+- Respect the evaluation harness's health gate (>5% infrastructure/health errors suppresses headline numbers). If triggered, reduce concurrency (`--eval-workers`) rather than bypassing the gate.
 
 ### 5.4 Metrics
 
-- EX (execution match) tổng và **theo category**.
-- Δ(A→C), Δ(A→B), Δ(B→C) — mean ± std.
-- Flip rate: % câu đổi kết quả giữa các lượt cùng arm.
-- Failure taxonomy từ `*_failures.jsonl`: wrong_join / wrong_column / wrong_filter / wrong_aggregation / syntax / timeout / abstained.
+- **Execution Accuracy (EX):** Overall and broken down **by question category**.
+- **Accuracy Deltas:** $\Delta(\text{A}\rightarrow\text{C'})$, $\Delta(\text{A}\rightarrow\text{B})$, $\Delta(\text{B}\rightarrow\text{C'})$, and $\Delta(\text{C}\rightarrow\text{C'})$ — reported as `mean ± std`.
+- **Flip Rate:** Percentage of questions whose correctness changes across the 3 runs within the same arm.
+- **Failure Taxonomy** (classified from `*_failures.jsonl`): `wrong_join`, `wrong_column`, `wrong_filter`, `wrong_aggregation`, `syntax_error`, `timeout`, `abstained`.
 
-**Exit**: `reports/RESULTS.md` có bảng 3 arm × 9 category, 3 lượt. Ít nhất một category có Δ(B→C) có ý nghĩa (hoặc kết luận rõ là không).
+**Exit Criteria:** `reports/RESULTS.md` populated with the 3-arm $\times$ 9-category accuracy table across 3 runs.
 
 ---
 
-## 6. Phase 3 — Suite 1 Ontology Discovery (1.5 ngày)
+## 6. Phase 3 — Suite 1 Ontology Discovery (1.5 Days)
 
-### 6.1 Lấy ontology đã sinh
+### 6.1 Extracting the Compiled Ontology
 
-Hai đường, dùng cả hai và đối chiếu:
-1. `POST /api/model/export` → Ossie YAML (giao diện public, ổn định hơn).
-2. Query trực tiếp `term`, `column_attribute`, `column__semantic_fk` (chi tiết hơn, nhưng phụ thuộc version — ghi rõ trong report).
+Combine two complementary extraction methods:
+1. `POST /api/model/export` $\rightarrow$ YAML export (public interface; sort `foreign_keys`, `joins`, and `semantic_fks` deterministically).
+2. `GET /api/terms`, `/api/terms/{id}/column-attributes`, and `/api/sql-attributes` (or direct read-only queries against `term`, `column_attribute`, `column__semantic_fk`) to capture `certified` flags and synonyms omitted by the YAML exporter.
 
-### 6.2 Matching rules (phải cố định trước khi nhìn kết quả)
+### 6.2 Matching Rules (Fixed Prior to Evaluation)
 
-| Loại | Match khi | Ghi chú |
+| Ontology Element | Match Condition | Notes |
 |---|---|---|
-| Entity | term sinh ra map tới đúng `table` trong manifest | tên khác được, bảng phải đúng |
-| Relationship | cặp (cột A, cột B) trùng, không phân biệt chiều | semantic_fk tính riêng vì khó hơn fk vật lý |
-| Term (business) | SQL attribute sinh ra, khi execute trên DB, cho kết quả **bằng** gold trên ≥ 95% grain | so kết quả, không so chuỗi SQL |
+| **Entity** | Generated `Term` maps to the exact target `table` in `manifest.json` | Term name may differ; underlying table mapping must match |
+| **Relationship** | Column pair `(col_A, col_B)` matches (undirected) | Report physical `fk` and implicit `semantic_fk` separately |
+| **Business Term** | Synthesized `sql_attribute`, when executed on the synthetic DB, matches the gold expression across $\ge 95\%$ of grain rows | Evaluated by execution equivalence, not SQL string similarity |
 
-Tính P/R/F1 cho từng loại. Báo riêng `fk` vs `semantic_fk`, `clean_name` vs `abbreviated`.
+Compute Precision, Recall, and F1 for each category. Report breakdowns for `fk` vs. `semantic_fk` and `clean_name` vs. `abbreviated` tables.
 
-### 6.3 Phân tích lỗi
+### 6.3 Error Analysis
 
-Liệt kê false positive quan hệ (ontology bịa JOIN) — đây là lỗi nguy hiểm nhất vì sinh SQL "chạy được nhưng sai". Đếm bao nhiêu câu Suite 2 fail do FP này.
+Catalog all **false-positive relationships** (hallucinated JOIN paths) — this is the most damaging failure mode because it produces SQL queries that execute without syntax errors but return corrupted business numbers. Count how many Suite 2 failures trace directly back to false-positive relationships.
 
-**Exit**: bảng P/R/F1 3 loại × 2 dataset (`edu-public`, `hahlex-edu`), kèm danh sách FP relationships.
+**Exit Criteria:** Precision / Recall / F1 table across all 3 element types $\times$ 2 datasets (`edu-public`, `hahlex-edu`), accompanied by the full list of false-positive relationships.
 
 ---
 
-## 7. Phase 4 — Suite 4 Schema Evolution, **Audit mode** (2 ngày)
+## 7. Phase 4 — Suite 4 Schema Evolution, **Audit Mode** (2 Days)
 
-### 7.1 Catalogue mutation — map thẳng vào acceptance criteria của #258
+### 7.1 Mutation Catalog (Mapped to Upstream Issue #258 Acceptance Criteria)
 
-| ID | Mutation | Tiêu chí #258 | Kỳ vọng vanilla (giả thuyết — phải kiểm chứng) |
+| ID | Schema / Data Mutation | Issue #258 Criterion | Expected Vanilla Behavior (Backed by `UPSTREAM_ARCHITECTURE.md` §2.2) |
 |---|---|---|---|
-| m01 | `ALTER TABLE enrollment RENAME COLUMN enrolled_at TO enrollment_date` | rename | Drop+add; term mất mapping; certified description mất |
-| m02 | `ALTER TABLE student ADD COLUMN scholarship_pct numeric` | add | Bảng đã có Term → không compile lại cột mới |
-| m03 | `ALTER TABLE class DROP COLUMN legacy_code` | drop | ColumnAttribute mồ côi còn lại |
-| m04 | `ALTER TABLE payment ALTER COLUMN amount TYPE numeric(12,2)` | retype | Có thể không phát hiện |
-| m05 | `COMMENT ON COLUMN ... IS '...'` | description | Không reprocess |
-| m06 | `ALTER TABLE invoice ADD CONSTRAINT fk_...` (thêm FK vật lý cho cặp vốn là semantic_fk) | key | Quan hệ trùng hoặc không nhận |
-| m07 | Sửa định nghĩa term: `UPDATE` dữ liệu để `attendance` có status mới `'excused'` | data/enum | sample_values cũ |
-| m08 | `CREATE TABLE` mới + FK vào `student` | new table | Được xử lý (chưa có Term) — control case |
+| `m01` | `ALTER TABLE enrollment RENAME COLUMN enrolled_at TO enrollment_date` | Column rename | Treated as drop + add; `Term` loses attribute mapping; certified description is lost |
+| `m02` | `ALTER TABLE student ADD COLUMN scholarship_pct numeric` | Column addition | Table already has a `Term` $\rightarrow$ skipped during compilation; new column never gets a `ColumnAttribute` |
+| `m03` | `ALTER TABLE class DROP COLUMN legacy_code` | Column drop | Orphaned `ColumnAttribute` remains linked to the `Term` |
+| `m04` | `ALTER TABLE payment ALTER COLUMN amount TYPE numeric(12,2)` | Column retype | Catalog updates in-place, but `column_attribute.datatype` and samples remain stale |
+| `m05` | `COMMENT ON COLUMN ... IS '...'` | Description update | Ignored by catalog diff (which only checks data type and nullability) |
+| `m06` | `ALTER TABLE invoice ADD CONSTRAINT fk_...` (promote a `semantic_fk` pair to a physical FK) | Key update | Duplicate relationship edge or unmerged FK representation |
+| `m07` | `UPDATE` data so `attendance.status` introduces a new enum value `'excused'` | Data / enum drift | `sample_values` are never refreshed for already-compiled tables |
+| `m08` | `CREATE TABLE` + physical FK referencing `student` | New table addition | Compiled normally on next pass (table has no prior `Term`) — serves as the positive control case |
 
-Mỗi mutation có `expected.json`: ontology sau mutation **nên** trông thế nào (diff so với manifest).
+Each mutation directory includes an `expected.json` file specifying the exact target ontology diff relative to `manifest.json`.
 
-### 7.2 Protocol T0→T3 cho mỗi mutation
+### 7.2 Evaluation Protocol (`T0` $\rightarrow$ `T4`) for Each Mutation
 
-```
+```text
 restore(T0)
-certify 3 term + 3 description qua API    → ghi lại nội dung
+certify 3 terms + apply 3 content edits (description, sample_values, manual sql_attribute) via API
 snapshot(T0_certified)
-run 20 câu probe → baseline answers
-apply mutation
-T1: chờ 10 phút, KHÔNG gọi gì            → export, diff, probe   (tự phát hiện?)
-T2: POST /ingest (catalog refresh)        → export, diff, probe   (refresh đủ?)
-T3: POST /semantic/compile                → export, diff, probe   (compile đủ?)
-T4: reset + full rebuild                  → export, diff, probe   (rebuild đúng?)
-so với expected.json; kiểm tra 6 certified items còn/mất
+run 20 probe questions → record baseline answers
+apply SQL mutation (m01..m08)
+T1: document absence of auto-detection (24h hardcoded scheduler; run 1 empirical 24h check on m01)
+T2: POST :3002/ingest (catalog refresh)                      → export, diff, run probes, check 6 edits
+T3: POST /api/semantic-compilation/trigger (incremental)     → export, diff, run probes, check 6 edits
+T4: POST :3002/semantic/reset?database_name= + full rebuild  → export, diff, run probes, check 6 edits
+compare each stage against expected.json; record survival of the 6 certified/manual items
 ```
 
 ### 7.3 Metrics
 
-- **Detection**: ở bước nào ontology phản ánh mutation (T1/T2/T3/T4/không bao giờ).
-- **Correctness**: diff vs `expected.json` — đúng / thiếu / sai / FP mới sinh.
-- **Latency**: thời gian từ apply đến khi `readiness` báo xong ở bước phát hiện.
-- **Certified retention**: 6/6 còn? Cái nào mất ở bước nào.
-- **Probe regression**: trong 20 câu probe, bao nhiêu câu đúng→sai sau mutation.
+- **Detection Stage:** At which stage (`T2` / `T3` / `T4` / never) the ontology accurately reflects the mutation.
+- **Structural Correctness:** Diff against `expected.json` — classified as `correct`, `missing`, `stale/wrong`, or `new_false_positive`.
+- **Update Latency:** Wall-clock time from triggering the stage until `readiness` reports completion.
+- **Edit Retention:** How many of the 6 certified/manual edits (`3 certified flags + 3 content edits`) survive at each stage (`x/6`).
+- **Probe Regression:** Out of the 20 probe questions, how many regress from `correct` $\rightarrow$ `incorrect` after the mutation.
 
-**Exit**: ma trận 8 mutation × 5 bước, 2 dataset. Đây là **finding trung tâm** của bài.
-
----
-
-## 8. Phase 5 — Patch `smart_evolve.py` + Suite 4 **Patch mode** (3 ngày)
-
-### 8.1 Thiết kế patch: sidecar, không fork
-
-- Chạy ngoài process Auto-Ontology, đọc catalog DB + gọi ingestion API. Không sửa code upstream → vẫn tái lập trên commit đã pin.
-- Input: fingerprint schema trước/sau (lưu trong `patch/state/`).
-- Bốn hành vi như `PLAN.md` bước 5: auto-rename migration, surgical column compile, orphan cleanup, re-profile.
-- Mỗi hành vi là một hàm riêng, bật/tắt bằng flag → đo được **đóng góp từng phần**.
-- Output: báo cáo created / updated / retained / removed / unresolved — đúng format #258 yêu cầu.
-
-### 8.2 Rủi ro phải nói rõ trong report
-
-- Ghi thẳng vào bảng `vdb.*` / `term` là phụ thuộc version. Patch chỉ được tuyên bố tương thích với commit đã pin.
-- Rename heuristic (ordinal + type + sample similarity) có thể nhận sai. Đo **rename precision** riêng: tạo 10 case rename thật + 5 case drop-then-add-khác-nghĩa, xem patch phân biệt được không.
-
-### 8.3 Chạy
-
-Lặp lại toàn bộ §7.2 với patch bật. Ablation: bật từng hành vi riêng cho m01, m02, m03.
-
-**Exit**: bảng **vanilla vs patch** 8 mutation; bảng ablation; rename precision/recall.
+**Exit Criteria:** Complete $8\text{ mutations} \times (\text{T2, T3, T4})$ evaluation matrix across both datasets. This serves as a **central finding** of the lab.
 
 ---
 
-## 9. Phase 6 — Các suite phụ (1.5 ngày)
+## 8. Phase 5 — Sidecar Patch `smart_evolve.py` + Suite 4 **Patch Mode** (3 Days)
 
-### Suite 6 — Abstention
-- 30 câu `unanswerable` + `ambiguous_intent` → gọi `check_answerable` và `ask_question`.
-- Metrics: abstention precision (từ chối đúng câu không trả lời được), abstention recall, và **false abstention** trên 150 câu answerable (từ chối câu đáng ra trả lời được — cái này đau hơn).
+### 8.1 Sidecar Architecture (Out-of-Process, No Upstream Fork)
 
-### Suite 5 — Continuous Learning (thu hẹp)
-- Seed 50 query thật vào query history (hoặc `/api/sql-attributes`) → compile lại → đếm SQL attribute mới sinh, và EX trên `business_metric` tăng bao nhiêu.
-- Không hứa đo "learning" rộng hơn thế.
+- Runs outside the Auto-Ontology containers, inspecting the catalog database and calling the ingestion/compilation endpoints. Zero modifications to upstream source code $\rightarrow$ preserves strict reproducibility against the pinned commit.
+- **Input:** Pre- and post-mutation schema fingerprints stored in `patch/state/`.
+- **Four surgical behaviors** (as specified in `PLAN.md` Step 5):
+  1. *Auto-rename migration* (`ordinal_position` + `data_type` + name similarity + sample overlap).
+  2. *Surgical column compilation* for new columns added to tables that already possess a `Term`.
+  3. *Orphan cleanup* for dropped columns/tables across `column_attribute` and `vdb.semantic_layer`.
+  4. *Incremental re-profiling* when categorical/enum columns acquire new distinct values.
+- Each behavior is modularized behind an independent CLI flag to support **ablation studies**.
+- **Output:** Structured diff report (`created`, `updated`, `retained`, `removed`, `unresolved`) aligned with the requirements of upstream issue #258.
 
-### Suite 3 — gộp vào Suite 2
-`ambiguous_date`, `business_metric`, `join_4_6` đã là category của Suite 2. Không cần suite riêng.
+### 8.2 Methodological Risks to Disclose in the Report
 
-### Suite 7, 8 — phụ lục
-- Latency P50/P95 lấy từ log Suite 2; chi phí token ước lượng. Một bảng, không phân tích.
-- PII detection: bật flag, chạy 10 câu chạm cột PII, ghi kết quả. Không mở rộng.
+- Writing directly to `vdb.*` and `term` tables is inherently version-coupled. The sidecar patch explicitly claims compatibility **only** with the pinned upstream commit (`c447003f`).
+- Heuristic rename detection can produce false positives when a column is dropped and a different column of the same type is added at the same ordinal position. We measure **rename precision** independently across a dedicated micro-benchmark: 10 true column renames + 5 drop-then-add-unrelated-column cases.
 
----
+### 8.3 Execution
 
-## 10. Phase 7 — Report & công bố (1.5 ngày)
+Re-run the full protocol from §7.2 with `--patch` enabled. Perform an ablation study by toggling individual patch behaviors on `m01`, `m02`, and `m03`.
 
-### `reports/RESULTS.md` sinh tự động, gồm
-1. Bảng freeze (commit, model).
-2. Suite 2: 3 arm × category, 2 dataset, mean ± std.
-3. Suite 1: P/R/F1 + FP relationships.
-4. Suite 4: ma trận vanilla; ma trận patch; ablation.
-5. Suite 6: abstention.
-6. Phụ lục 5/7/8.
-7. Danh sách **mọi** failure case kèm SQL — để người đọc tự kiểm.
-
-### Bài LinkedIn — 3 finding, không hơn
-1. Ontology đúng đến đâu (F1) và sai ở đâu (FP join).
-2. Schema thay đổi: vanilla hỏng ở m01–m05 như thế nào; patch sửa được gì, chưa sửa được gì.
-3. Δ accuracy theo category — và Δ(B→C) để nói thẳng ontology thêm được gì ngoài mô tả cột.
-
-### Repo public cần có
-- `spec/`, `datasets/edu-public/`, `questions/`, `eval/`, `patch/`, `config/freeze.yaml`, `reports/RESULTS.md`.
-- `hahlex-edu` chỉ xuất hiện dưới dạng số tổng hợp, không schema, không data.
+**Exit Criteria:** Side-by-side **Vanilla vs. Patch** comparison matrix across all 8 mutations; ablation table; rename precision/recall breakdown.
 
 ---
 
-## 11. Refactor `scripts/import_dataset.py` (làm trong Phase 0–1)
+## 9. Phase 6 — Supplementary Suites (1.5 Days)
 
-Script hiện tại chạy được nhưng cần sửa để sống lâu:
+### Suite 6 — Abstention & Unanswerable Queries
+- Run the 30 `unanswerable` + `ambiguous_intent` questions through both `POST /api/question-entity-coverage` and `POST /api/chat/completions`.
+- **Metrics:** Entity coverage score distribution; chat abstention precision and recall; rate of "executable but semantically meaningless SQL" hallucinated on out-of-schema questions; and **false abstention rate** across the 150 answerable questions.
 
-| Hiện tại | Nên |
+### Suite 5 — Continuous Learning from Query History (Scoped Down)
+- Execute 50 analytical SQL queries against the synthetic PostgreSQL database immediately before triggering `POST :3002/ingest` (so they appear in `pg_stat_activity`), run semantic compilation, count newly generated `sql_attribute` records, and measure the resulting accuracy delta on the `business_metric` question category.
+
+### Suite 3 — Merged into Suite 2
+`ambiguous_date`, `business_metric`, and `join_4_6` are evaluated directly as categories within Suite 2 rather than as a standalone suite.
+
+### Suites 7 & 8 — Appendices
+- **Suite 7 (Latency & Token Cost):** Extract P50/P95 latency from `GET /api/analytics` and token counts from the LLM logging proxy during Suite 2 runs. Summarize in a single table.
+- **Suite 8 (PII Masking Verification):** Enable `pii_detection_enabled`, re-ingest, and check whether raw email/phone sample values remain exposed in `catalog_column.sample_values` and `vdb.semantic_layer`.
+
+---
+
+## 10. Phase 7 — Automated Reporting & Publication (1.5 Days)
+
+### Automated `reports/RESULTS.md` Contents
+1. **Environment Freeze Table:** Commit hashes, model endpoints, and runtime flags.
+2. **Suite 2 (Text-to-SQL):** Arms A, B, C' (and C) $\times$ question category across 2 datasets (`mean ± std`, flip rate).
+3. **Suite 1 (Ontology Discovery):** Precision / Recall / F1 + false-positive relationship catalog.
+4. **Suite 4 (Schema Evolution):** Vanilla audit matrix, Patch mode matrix, ablation study, and rename precision.
+5. **Suite 6 (Abstention):** Coverage vs. chat hallucination rates on unanswerable questions.
+6. **Appendices (Suites 5, 7, 8):** Query-log learning, latency/token cost, and PII exposure verification.
+7. **Complete Failure Log:** Every failed question alongside its gold SQL, predicted SQL, and failure classification for independent verification.
+
+### Public Repository Deliverables
+- Commit `spec/`, `datasets/edu-public/`, `questions/`, `eval/`, `patch/`, `config/freeze.yaml`, and `reports/RESULTS.md`.
+- `hahlex-edu` appears strictly as aggregated metrics in `RESULTS.md` — zero schema definitions or data files published.
+
+---
+
+## 11. Refactoring `scripts/import_dataset.py` (Phase 0–1)
+
+The existing `scripts/import_dataset.py` works for initial bootstrapping but requires the following updates for production-accurate benchmarking:
+
+| Current Implementation | Target Refactored Implementation |
 |---|---|
-| Hardcode container `postgres`, `auto-ontology` | Đọc từ `config/freeze.yaml` |
-| Ghi thẳng `frontend.configurations` để bật compile | Kiểm tra OpenAPI spec xem có endpoint settings; nếu không, giữ nhưng comment rõ "version-specific, pinned to <hash>" |
-| `ensure_clean_env` tự sửa `.env` và `docker compose up` | Tách thành `scripts/doctor.py` riêng; import không nên có side effect lên môi trường |
-| Poll `vdb.data_objects_layer` 60 giây cố định | Dùng `eval/common/readiness.py` chung |
-| Không ghi log run | Ghi `reports/runs/<ts>/import.json`: dataset, db_name, thời gian ingest, thời gian compile |
+| Hardcodes container names `postgres`, `auto-ontology` | Reads container and endpoint configuration from `config/freeze.yaml` |
+| Writes directly to `frontend.configurations` via SQL to enable compilation | Calls `PUT :3000/api/configurations/semantic-compilation` using an admin `x-api-key` |
+| Calls `:3001` directly with `x-auto-ontology-user-id` | Routes all requests through the `:3000` production gateway with `x-api-key` |
+| `ensure_clean_env` mutates `.env` and runs `docker compose up` | Extracted into a standalone `lab doctor` command so dataset import has zero environment side effects |
+| Polls `vdb.data_objects_layer` with a fixed 60s sleep | Uses the shared `eval/common/readiness.py` poller (`GET /api/semantic-compilation/status` + `semantic_compilation_history`) |
+| No structured run logging | Writes `reports/runs/<ts>/import.json` recording dataset name, target DB, ingestion duration, and compilation duration |
 
 ---
 
-## 12. Rủi ro & cách xử lý
+## 12. Risk Register & Mitigations
 
-| Rủi ro | Xử lý |
+| Risk | Mitigation |
 |---|---|
-| Upstream đổi schema `vdb.*` giữa chừng | Đã pin commit; không `git pull` trong suốt lab |
-| Delta Suite 2 trong khoảng nhiễu | 3 lượt + báo std; nếu std > Δ thì kết luận "không phân biệt được" — đó cũng là finding |
-| Rate limit NIM làm health gate đỏ | Giảm workers; chạy đêm; không bỏ gate |
-| Bẫy synthetic bị chê "cố tình" | Mỗi bẫy có `rationale` + nguồn tham chiếu schema thật trong spec |
-| Patch nhận rename sai | Đo rename precision riêng (§8.2); báo cả FP |
-| Scope lan sang Suite 7/8 | Phụ lục một bảng, không phân tích |
-| Dataset nội bộ lộ | `datasets/hahlex-edu/` gitignore; report chỉ số tổng hợp; review trước khi push |
+| Upstream changes `vdb.*` schema mid-evaluation | Commit hash is pinned in `freeze.yaml`; `git pull` is prohibited during the lab lifecycle |
+| Suite 2 accuracy delta falls within LLM variance noise | Run 3 iterations and report `mean ± std`; if $\text{std} > \Delta$, report "statistically indistinguishable" — which is itself a valid finding |
+| NIM rate limits trigger the >5% health gate | Reduce worker concurrency or run overnight; never disable the health gate |
+| Synthetic traps criticized as "contrived" | Every trap in `spec/edu_public.yaml` includes a `rationale` citing real-world LMS schemas (Moodle, Canvas, `hahlex-edu`) |
+| Sidecar patch misidentifies column renames | Evaluate rename precision separately on a 15-case micro-benchmark (§8.2) and report false positives transparently |
+| Scope creep into Suites 7 & 8 | Strictly capped at a single appendix table each |
+| Accidental leakage of internal dataset | `datasets/hahlex-edu/` is gitignored; only aggregate metrics appear in `RESULTS.md`; audit `git status` before pushing |
 
 ---
 
-## 13. Lịch 3 tuần
+## 13. 3-Week Execution Schedule
 
-| Tuần | Phase | Deliverable kiểm chứng được |
+| Week | Phases | Verifiable Deliverables |
 |---|---|---|
-| 1 | 0, 1, 2 | `freeze.yaml`; `edu-public` import được; Suite 2 có số 3 arm |
-| 2 | 3, 4 | Suite 1 F1; ma trận Suite 4 vanilla |
-| 3 | 5, 6, 7 | Patch + ma trận patch; abstention; `RESULTS.md`; bài |
+| **Week 1** | Phases 0, 1, 2 | `freeze.yaml` locked; `edu-public` generated & imported; initial 3-arm numbers for Suite 2 |
+| **Week 2** | Phases 3, 4 | Suite 1 P/R/F1 tables; complete Suite 4 vanilla evolution matrix |
+| **Week 3** | Phases 5, 6, 7 | `smart_evolve.py` sidecar + Patch mode matrix; Suite 6 abstention; `RESULTS.md` generated |
 
-Nếu trượt: cắt Suite 5 trước, rồi ablation patch, rồi dataset nội bộ (giữ public). **Không cắt baseline vanilla.**
+**Contingency cut order:** If behind schedule, drop Suite 5 first, then the patch ablation breakdown, and finally the secondary internal dataset runs (preserving `edu-public`). **Never cut the vanilla baseline.**
 
 ---
 
-## 14. Việc làm ngay (thứ tự)
+## 14. Immediate Next Actions (Ordered)
 
-1. Tạo `config/freeze.yaml` từ stack đang chạy (`git -C auto-ontology rev-parse HEAD`, model names trong `.env`).
-2. Viết `eval/common/snapshot.py` + `readiness.py`, test restore trên `hahlex-edu` đang có.
-3. Viết `spec/edu_public.yaml` — bắt đầu từ 8 bảng, 4 bẫy; mở rộng sau khi pipeline chạy thông.
-4. Viết `generators/from_spec.py` tối thiểu (schema + seed + manifest), import, compile, snapshot.
-5. Viết 30 câu `simple` + `join_2_3` trước, chạy Suite 2 arm A và C **một lượt** để thông pipeline eval. Mở rộng category sau.
+1. Generate `config/freeze.yaml` from the currently running stack (`git -C auto-ontology rev-parse HEAD` and active model endpoints in `.env`).
+2. Implement `eval/common/snapshot.py` + `readiness.py` and verify snapshot/restore on the existing `hahlex-edu` database.
+3. Draft `spec/edu_public.yaml` — start with 8 core tables and 4 schema traps, then expand to ~15 tables once the pipeline runs end-to-end.
+4. Implement a minimal `generators/from_spec.py` (DDL + seed + manifest), import into Auto-Ontology, compile, and capture snapshot `T0`.
+5. Author 30 `simple` + `join_2_3` questions first and execute a single smoke run of Suite 2 across Arms A and C' to validate the end-to-end evaluation harness before expanding to all 180 questions.

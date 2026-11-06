@@ -1,201 +1,202 @@
-# Auto-Ontology upstream — kiến trúc thật và hệ quả cho lab
+# Auto-Ontology Upstream — Ground-Truth Architecture & Lab Design Implications
 
-> Phân tích tĩnh source `NVIDIA/auto-ontology` @ `c447003f` (v1.2.0, 2026-11-06) và `NVIDIA/auto-ontology-eval` @ `ec41b2c5` (2026-11-03). Không chạy code. Đường dẫn và số dòng theo đúng commit trên. Mục đích: lab bám hành vi **production thật**, không bám README.
+> Static source-code analysis of `NVIDIA/auto-ontology` @ `c447003f` (v1.2.0, 2026-11-06) and `NVIDIA/auto-ontology-eval` @ `ec41b2c5` (2026-11-03). File paths and line numbers correspond to these exact commits. **Purpose:** Anchor the lab's experimental design in **actual production code behavior** rather than marketing or README claims.
 
 ---
 
-## 0. Mười phát hiện làm thay đổi thiết kế lab
+## 0. Ten Source Findings That Reshape the Lab Design
 
-| # | Phát hiện | Bằng chứng | Hệ quả |
+| # | Finding | Code Evidence | Lab Design Implication |
 |---|---|---|---|
-| 1 | **Cờ certified không ảnh hưởng gì đến câu trả lời.** Không chỗ nào trong `retrieval/`, `semantic/`, `utils/`, `vdb/` đọc `*_certified`. Chỉ dùng cho badge UI và search. | grep toàn repo; `sql_attributes.py:143` select nhưng không filter/rank | Bỏ giả thuyết "certify giúp accuracy". Test "reviewed ontology" phải sửa **nội dung** (description, sample_values, sql attribute), không bật cờ. Certified retention vẫn đo được nhưng là test *bảo toàn dữ liệu*, không phải *chất lượng*. |
-| 2 | **Chat không có bước abstain.** `check_answerable` chỉ là tên MCP của `/api/question-entity-coverage`, một endpoint riêng, chat không gọi. `sql_code` và `response` là `NonEmptyStr` → model không thể trả "không trả lời được". Abstain chỉ xảy ra khi fail 3×3 lần sinh SQL hoặc hết 7 lần reconstruct. | `models.py:239-248`; `sql_unconstructable.py:40-91`; `entity_coverage/graph.py:26-49` | Suite 6 phải tách 2 phần: (a) coverage score của `/api/question-entity-coverage` trên câu unanswerable; (b) hành vi thật của chat — kỳ vọng nó **luôn sinh SQL**, tức hallucinate trên câu ngoài schema. Đây là finding lớn. |
-| 3 | **Benchmark chính thức không đi qua production path.** `auto-ontology-eval` import Python trực tiếp (`stream_agent_response`), không REST, không MCP, và bật `validate_sql_values=True`, `calculation_only=True`, `shorten_answer=True` — các knob **HTTP route không expose**. Pin commit `dd78d068`, không phải main. | eval `auto_ontology_sql/app.py:70-76, 349-424`; upstream `text_to_sql_graph.py:225-239` (`validate_sql_values` off khi qua worker) | Số của NVIDIA đo một cấu hình người dùng không có được. Lab cần **arm C' = production gateway** (`POST :3000/api/chat/completions` + `x-api-key`) bên cạnh arm C (harness). Chênh C vs C' là contribution riêng. |
-| 4 | **Rename = drop + add, có test của chính NVIDIA xác nhận.** Bảng đã có Term **không bao giờ** được compile lại. Cột thêm vào bảng đã compile không bao giờ có ColumnAttribute. Bảng bị drop để lại Term mồ côi + vector cũ. | `catalog/tests/test_incremental_ingest.py:214-226`; `dal/datasources.py:852-882 fetch_all_tables_without_term`; `column_attribute.table_id` là TEXT không FK (`schema.py:497-501`) | Kết quả Suite 4 vanilla cho m01–m05 gần như chắc chắn fail. Lab không "phát hiện" bug — lab **đo tác động** của bug lên câu trả lời và chứng minh patch sửa được. |
-| 5 | **Không có endpoint public để re-ingest.** `PUT /api/connections/{db}` chỉ re-ingest khi schema allowlist đổi. Scheduler 24h hard-code (`INGEST_INTERVAL_HOURS` không được đọc). Re-ingest on demand chỉ qua `:3002/ingest` nội bộ, không auth. | `server/connections/service.py:286`; `data_scheduler.py:36`; `ingestion_service/router.py:74-78` | Protocol T1 "chờ 10 phút" vô nghĩa — không có gì chạy. Thay bằng: T1 = xác nhận không có cơ chế tự phát hiện (đọc code + 1 lần chờ qua chu kỳ 24h để có bằng chứng thực nghiệm). T2 bắt buộc gọi `:3002/ingest`. |
-| 6 | **`/semantic/reset` xoá sạch certified và manual work.** `delete_semantic_layer` không phân biệt cờ. Reset public (`/api/semantic-compilation/reset`) reset **mọi** database. | `dal/reset.py:66-184`; `server/semantic_compilation/router.py:45-55` | T4 full rebuild = mất toàn bộ chỉnh sửa. Đây là câu trả lời thẳng cho Vladimir. |
-| 7 | **Export không chứa certified, synonyms, owner, tag, zone.** `foreign_keys`, `joins`, `semantic_fks` là `SELECT DISTINCT` không ORDER BY. | `dal/model_interchange.py:195-251, 568`; `schemas.py:48-159` | Diff ontology = export YAML (sort 3 list trên) **+** GET `/api/terms`, `/api/terms/{id}/column-attributes`, `/api/sql-attributes` để lấy cờ certified. |
-| 8 | **PII detection không mask gì.** Chỉ gắn tag. Sample values của cột PII vẫn vào `catalog_column.sample_values`, vào prompt LLM, vào cả 2 VDB. | grep `pii` trong `semantic/`, `retrieval/`, `embedding_rows` = rỗng; `pii_detection/service.py:150` | Suite 8 thu lại thành một test rẻ và sắc: bật `pii_detection_enabled`, kiểm tra sample value của cột email/phone có nằm trong `vdb.semantic_layer` text không. |
-| 9 | **Zones không còn là ranh giới phân quyền.** Route truyền `zone_ids=None`; retrieval không có code zone. | `frontend/auth/proxy-backend.ts:95-97`; `terms/router.py:81,103` | Bỏ "tenant isolation" khỏi lab. Ghi nhận là fact. |
-| 10 | **Không ghi token/cost ở đâu cả.** Latency chỉ có 2 timestamp trong `frontend.conversation_analytics`. RERANK model không dùng khi trả lời. Chỉ 1 warm worker → song song bị cold-start. | `schema.prisma:88-102`; `worker.py:5-25, 366` | Đo cost phải đặt proxy OpenAI-compatible có log trước `REASONING_/NON_REASONING_/EMBED_ENDPOINT`. Chạy eval **tuần tự**. Tag traffic bằng header `x-auto-ontology-source: lab`. |
+| **1** | **The `certified` flag has zero effect on query answering.** Nowhere in `retrieval/`, `semantic/`, `utils/`, or `vdb/` is `*_certified` read during retrieval or SQL synthesis. It is used strictly for UI badges and search filtering. | Repo-wide grep; `sql_attributes.py:143` selects the column but never filters or ranks by it | Drop the hypothesis that "toggling certified improves accuracy". Testing a "human-reviewed ontology" requires modifying **content** (`description`, `sample_values`, `sql_attribute`), not merely flipping certification booleans. Certified flag retention is still measured in Suite 4, but strictly as a *data preservation* test rather than a *quality* lever. |
+| **2** | **The chat pipeline has no proactive abstention step.** `check_answerable` is merely the MCP tool alias for `/api/question-entity-coverage` — a standalone endpoint that the chat graph never calls. Moreover, `sql_code` and `response` are typed as `NonEmptyStr`, preventing the LLM from returning an empty SQL response. Abstention occurs only when SQL generation fails $3 \times 3$ attempts or exhausts all 7 reconstruction retries. | `models.py:239-248`; `sql_unconstructable.py:40-91`; `entity_coverage/graph.py:26-49` | Split Suite 6 into two distinct evaluations: (a) coverage scores returned by `/api/question-entity-coverage` on unanswerable questions; and (b) actual chat behavior — where we expect the agent to **always emit SQL** (hallucinating queries on out-of-schema questions). This is a major finding. |
+| **3** | **NVIDIA's official benchmark harness bypasses the production execution path.** `auto-ontology-eval` imports Python internals directly (`stream_agent_response`), bypassing REST and MCP, and enables `validate_sql_values=True`, `calculation_only=True`, and `shorten_answer=True` — internal knobs that **HTTP routes do not expose**. Furthermore, it pins commit `dd78d068` rather than `main`. | Eval `auto_ontology_sql/app.py:70-76, 349-424`; upstream `text_to_sql_graph.py:225-239` (`validate_sql_values` defaults to off in the worker) | NVIDIA's published benchmark numbers measure a configuration unavailable to production API consumers. The lab introduces **Arm C' = production gateway** (`POST :3000/api/chat/completions` + `x-api-key`) alongside Arm C (harness). The delta between C and C' is an independent methodological contribution. |
+| **4** | **Column rename = drop + add, confirmed by NVIDIA's own unit tests.** Tables that already possess a `Term` are **never** re-compiled. Columns added to an already-compiled table never receive a `ColumnAttribute`. Dropped tables leave behind orphaned `Term` records and stale vector embeddings. | `catalog/tests/test_incremental_ingest.py:214-226`; `dal/datasources.py:852-882` (`fetch_all_tables_without_term`); `column_attribute.table_id` is an unconstrained `TEXT` column (`schema.py:497-501`) | Suite 4 vanilla runs for `m01`–`m05` are guaranteed to fail by design. The lab's goal is not to "discover" this known limitation, but to **quantify its downstream impact on query accuracy** and demonstrate how the sidecar patch resolves it. |
+| **5** | **No public endpoint exists to trigger re-ingestion.** `PUT /api/connections/{db}` only re-ingests if the schema allowlist changes. The background scheduler is hardcoded to 24 hours (`INGEST_INTERVAL_HOURS` is ignored). On-demand re-ingestion is only possible via the internal unauthenticated `:3002/ingest` route. | `server/connections/service.py:286`; `data_scheduler.py:36`; `ingestion_service/router.py:74-78` | Waiting 10 minutes at stage `T1` is meaningless because no background job runs. Replace `T1` with: document absence of auto-detection (citing code + a single empirical 24h wait test on `m01`). Stage `T2` must explicitly invoke `:3002/ingest`. |
+| **6** | **`/semantic/reset` wipes out all certified flags and manual edits.** `delete_semantic_layer` performs an unconditional delete without checking certification flags. Worse, the public reset route (`/api/semantic-compilation/reset`) wipes **every** database in the instance. | `dal/reset.py:66-184`; `server/semantic_compilation/router.py:45-55` | Stage `T4` (full rebuild) destroys 100% of human curation. |
+| **7** | **Model export omits `certified`, `synonyms`, `owner`, `tag`, and `zone`.** Furthermore, `foreign_keys`, `joins`, and `semantic_fks` are queried via `SELECT DISTINCT` without an `ORDER BY` clause. | `dal/model_interchange.py:195-251, 568`; `schemas.py:48-159` | To diff ontologies deterministically: export YAML (and sort those 3 relationship lists) **+** call `GET /api/terms`, `/api/terms/{id}/column-attributes`, and `/api/sql-attributes` to capture `certified` flags and synonyms. |
+| **8** | **PII detection does not mask or redact values.** It merely attaches a metadata tag. Raw sample values from PII columns are still stored in `catalog_column.sample_values`, injected into LLM prompts, and embedded into both vector indexes. | Grep for `pii` across `semantic/`, `retrieval/`, and `embedding_rows` returns nothing; `pii_detection/service.py:150` | Condense Suite 8 into a sharp, deterministic check: enable `pii_detection_enabled`, re-ingest, and verify whether raw email/phone sample values appear inside `catalog_column.sample_values` and `vdb.semantic_layer` text. |
+| **9** | **Zones are no longer enforced as authorization boundaries.** Backend routes pass `zone_ids=None`, and retrieval queries contain zero zone filtering logic. | `frontend/auth/proxy-backend.ts:95-97`; `terms/router.py:81,103` | Remove multi-tenant zone isolation tests from the lab plan and record this finding as an architectural fact. |
+| **10** | **Token usage and cost are never logged.** Latency tracking is limited to two timestamps in `frontend.conversation_analytics`. The configured `RERANK` model is never invoked during query answering. Only 1 warm worker subprocess is maintained, causing cold-start penalties under concurrent load. | `schema.prisma:88-102`; `worker.py:5-25, 366` | Place an OpenAI-compatible logging proxy in front of `REASONING_`, `NON_REASONING_`, and `EMBED_ENDPOINT` to measure token consumption. Execute all evaluation queries **sequentially** and tag traffic with header `x-auto-ontology-source: lab`. |
 
 ---
 
-## 1. Topology production
+## 1. Production Topology
 
+```text
+client ──x-api-key──▶ Next.js :3000 (auth, RBAC) ──x-auto-ontology-user-id──▶ FastAPI :3001
+                                                                                   │ best-effort HTTP
+                                                                                   ▼
+                                                                         ingestion-service :3002 (no auth)
+                                                                                   │
+                                         Postgres 17 + pgvector ◀──────────────────┘
+                                         schemas: public (catalog + semantic, Alembic)
+                                                  frontend (users, tokens, configurations, Prisma)
+                                                  vdb (data_objects_layer, semantic_layer)
 ```
-client ──x-api-key──▶ Next.js :3000 (auth, permission) ──x-auto-ontology-user-id──▶ FastAPI :3001
-                                                                                        │ best-effort HTTP
-                                                                                        ▼
-                                                                              ingestion-service :3002 (no auth)
-                                                                                        │
-                                              Postgres 17 + pgvector ◀──────────────────┘
-                                              schemas: public (catalog+semantic, Alembic)
-                                                       frontend (users, tokens, configurations, Prisma)
-                                                       vdb (data_objects_layer, semantic_layer)
-```
 
-- **Official install = Helm** (`DEPLOYMENT.md`); Compose là cùng stack trên 1 máy. Helm để `:3001`, `:3002`, `:5432` ở ClusterIP; Compose publish cả ra host.
-- **Chỉ `:3000` là public.** `:3001` tin header `x-auto-ontology-user-id` không xác minh (`server/identity.py:127-146`); không header → bỏ qua `enforce_edit` (`owners.py:98-103`). `:3002` không auth, có `/semantic/reset` xoá mọi thứ.
-- Auth resolve theo thứ tự: session cookie → API token (`x-api-key` hoặc Bearer `auto_ontology_…`) → OAuth MCP → SSO. Token *act as owner*. Role chỉ có `admin` / `viewer`.
-- Ingestion service phải **1 replica** — scheduler in-process, không leader election.
-- Helm chỉ truyền `DEFAULT_MODELS_*` + `EMBED_*`; các triplet `REASONING_*`, `RERANK_*` và mọi `DB_PROBE_*` không truyền → production Helm chạy mọi role bằng 1 model mặc định, flag mặc định.
-- Vault bật khi đủ 4 biến; thiếu 1 → fallback plaintext **không báo lỗi**.
-- `semantic_compilation_enabled` và `pii_detection_enabled` **mặc định false**.
+- **Official deployment target = Helm** (`DEPLOYMENT.md`); Docker Compose runs the identical multi-service stack on a single host. Helm restricts `:3001`, `:3002`, and `:5432` to internal `ClusterIP` services, whereas Docker Compose publishes them to the host.
+- **Only `:3000` is public-facing.** `:3001` blindly trusts the `x-auto-ontology-user-id` header without verification (`server/identity.py:127-146`); if the header is omitted, `enforce_edit` checks are bypassed (`owners.py:98-103`). `:3002` has no authentication at all and exposes `/semantic/reset`.
+- **Authentication resolution order:** session cookie $\rightarrow$ API token (`x-api-key` or `Bearer auto_ontology_...`) $\rightarrow$ OAuth MCP $\rightarrow$ SSO. API tokens inherit the permissions of their creator. Roles are strictly binary: `admin` or `viewer`.
+- **Single-replica ingestion:** `ingestion-service` must run as a single replica because its scheduler runs in-process without leader election.
+- **Helm model configuration gap:** The Helm chart only wires `DEFAULT_MODELS_*` and `EMBED_*`; role-specific triplets (`REASONING_*`, `RERANK_*`) and `DB_PROBE_*` flags are omitted from the chart templates, meaning default Helm deployments run every LLM task through a single default model.
+- **Vault fallback:** HashiCorp Vault integration activates only when all 4 Vault environment variables are present; if any single variable is missing, credentials silently fall back to plaintext storage in PostgreSQL without raising an error.
+- **Feature flags:** Both `semantic_compilation_enabled` and `pii_detection_enabled` default to **`false`**.
 
-### Hệ quả lab
-- Stack Compose trên Windows chấp nhận được, nhưng **mọi client của lab chỉ gọi `:3000` với `x-api-key`**. `import_dataset.py` hiện gọi `:3001` với `x-auto-ontology-user-id` → phải sửa; giữ đường `:3002/ingest` chỉ cho Suite 4 (vì không có đường public) và ghi rõ.
-- Tạo 1 admin + 1 viewer; chạy câu hỏi bằng token viewer; certify/export bằng admin.
-- Pin `EMBED_MODEL` cứng — đổi là phải re-ingest toàn bộ.
+### Lab Implications
+- Running Docker Compose on Windows is architecturally faithful **provided all lab clients communicate exclusively via `:3000` with `x-api-key`**. The existing `import_dataset.py` calls `:3001` directly with `x-auto-ontology-user-id` and must be refactored; direct calls to `:3002/ingest` are restricted strictly to Suite 4 (where no public API exists) and documented explicitly.
+- Provision 1 `admin` user and 1 `viewer` user: execute all question-answering benchmarks with the `viewer` token, and perform certification/export/configuration operations with the `admin` token.
+- Hard-pin `EMBED_MODEL` — changing the embedding model requires wiping and re-ingesting the entire vector database.
 
 ---
 
-## 2. Ingest → catalog → compile (đường đi thật)
+## 2. Ingestion $\rightarrow$ Catalog $\rightarrow$ Compilation Pipeline (Actual Code Path)
 
-### 2.1 Ingest (`ingestion_service/ingest.py:run_ingest` L82-164)
-1. `catalog/extract.py:create_dataframe` L80-102: `get_tables/columns/views/queries/pks/fks` → lọc allow/deny regex.
-2. `catalog/write.py:populate_tabular_data` L34-60: `populate_db` (diff theo **tên**, không fingerprint) → `populate_fks` (`last_seen`, xoá FK cũ) → `populate_pks` → `populate_queries`.
-3. PII (nếu bật): rule + LLM trên **tên cột/bảng/description**, không dùng sample. Tag `PII` khi conf ≥ 0.9. Không mask.
-4. Embed data layer: **xoá toàn bộ** `vdb.data_objects_layer` của database rồi embed lại (`vdb/postgres.py:157-186`). Không incremental.
-5. Ingest **không** trigger compile. Không có status API; chỉ log + `catalog_database.pulled`.
+### 2.1 Catalog Ingestion (`ingestion_service/ingest.py:run_ingest` L82–164)
+1. `catalog/extract.py:create_dataframe` (L80–102): extracts tables, columns, views, query history, PKs, and FKs $\rightarrow$ filters table names against allow/deny regexes.
+2. `catalog/write.py:populate_tabular_data` (L34–60): calls `populate_db` (diffs strictly by **object name**, without structural fingerprinting) $\rightarrow$ `populate_fks` (tracks `last_seen` and deletes unseen FKs) $\rightarrow$ `populate_pks` $\rightarrow$ `populate_queries`.
+3. **PII Detection** (if enabled): runs regex rules + an LLM classifier over **table/column names and descriptions only** (ignoring sample values). Attaches a `PII` tag when confidence $\ge 0.9$. Performs zero masking or redaction.
+4. **Data Objects Vector Layer:** **deletes all existing embeddings** for the database in `vdb.data_objects_layer` and re-embeds from scratch (`vdb/postgres.py:157-186`). Not incremental.
+5. Ingestion **does not** automatically trigger semantic compilation. There is no ingestion status endpoint; completion is observable only via container logs and `catalog_database.pulled`.
 
-### 2.2 Re-ingest bảng/cột đã có (`catalog/diff.py:update_diff_from_existing_schema` L76-250)
-| Thay đổi | Catalog | Semantic layer |
+### 2.2 Re-Ingesting Existing Tables & Columns (`catalog/diff.py:update_diff_from_existing_schema` L76–250)
+
+| Schema / Data Change | Catalog Layer Behavior | Semantic Layer Behavior |
 |---|---|---|
-| Thêm bảng | add | compile pass sau tạo Term |
-| Drop bảng | delete cascade cột | `term` **mồ côi** (table__term cascade nhưng term còn), `column_attribute` còn (table_id TEXT), vector `semantic_layer` **cũ còn** |
-| Thêm cột vào bảng đã compile | add | **không bao giờ** có ColumnAttribute; rơi vào `find_unlinked_fk_columns` mỗi pass |
-| Drop cột | delete | ColumnAttribute mồ côi, vẫn link Term |
-| Rename cột | drop + add (id mới) | như drop + thêm cộng lại; description/certified **không theo** |
-| Retype | update in place, giữ id | `column_attribute.datatype` stale, sample stale |
-| Đổi COMMENT nguồn | **bỏ qua** (chỉ diff type/nullable) | — |
-| Đổi phân phối data | — | profile/sample/is_unique **không bao giờ** refresh cho bảng đã compile |
+| **Add Table** | Inserted into catalog | Compiled into a new `Term` on the next compilation pass |
+| **Drop Table** | Cascades delete to `catalog_column` | Leaves an **orphaned `Term`** (`table__term` cascades, but `term` remains), orphaned `column_attribute` rows (`table_id` is unconstrained `TEXT`), and **stale vectors** in `vdb.semantic_layer` |
+| **Add Column to Compiled Table** | Inserted into `catalog_column` | **Never** receives a `ColumnAttribute` (table already has a `Term`); repeatedly falls into `find_unlinked_fk_columns` on every pass |
+| **Drop Column** | Deleted from `catalog_column` | Orphaned `ColumnAttribute` remains linked to the parent `Term` |
+| **Rename Column** | Treated as **Drop + Add** (assigned a new column ID) | Combines the Drop Column and Add Column bugs above; existing descriptions and `certified` flags are **lost** |
+| **Retype Column** | Updated in-place (preserves column ID) | `column_attribute.datatype` and `sample_values` remain stale |
+| **Modify Column `COMMENT`** | **Ignored** (catalog diff only compares `data_type` and `is_nullable`) | Unchanged |
+| **Data Distribution / Enum Drift** | Unchanged | Table profile, `sample_values`, and `is_unique` are **never** refreshed for already-compiled tables |
 
-### 2.3 Compile (`semantic/compile.py` → `pipeline.py:compile_semantic_layer` L253-366)
-- Chọn bảng: `fetch_all_tables_without_term` → chỉ bảng chưa có Term. 3 worker, commit theo thứ tự canonical.
-- Mỗi bảng (`visit_enter.py:process_table` L753):
-  - **Profile**: `SELECT * LIMIT 1000` (không ORDER BY), timeout 120s. Top-5 giá trị phổ biến. **Loại** cột kiểu date/time/uuid khỏi sample; giá trị string > 30 ký tự bị bỏ. DISTINCT probe cho cột text có < 5 distinct trong sample, giữ nếu ≤ 25 distinct.
-  - **FK suggester** (LLM) → chỉ dùng để loại cột khỏi ColumnAttribute candidates, **không ghi edge**. Đánh dấu junction table.
-  - **Term extractor**: prompt "prefer ONE Term per table", tối đa 40 cột đưa vào prompt. Fallback deterministic nếu LLM fail. Bảng toàn FK / bridge **không có Term** → bị xử lý lại **mỗi pass**.
-  - Embed vào `vdb.semantic_layer`: `"Term: <name>. <desc>"`, `"ColumnAttribute: <attr> of Term <term> (<synonyms>). <desc><samples>"`.
-- Sau tất cả bảng, **mỗi pass** chạy lại: `resolve_semantic_fks` → `suggest_sql_attributes` → `build_bridge_tables_sql_attributes`.
-- **Semantic FK** (`semantic/semantic_fk.py`): với cột chưa link, k-NN top 3+3 trên ColumnAttribute `is_unique=True`, LLM chọn hoặc null; nếu null → probe **tất cả** distinct sample của cột nguồn phải có trong cột đích. Sau đó `prune_disjoint_semantic_fks` xoá edge nào không có giá trị chung. **Không có confidence số**, chỉ nhị phân.
-- **SQL attributes từ query history**: Postgres chỉ đọc `pg_stat_activity` (query đang/ vừa resident, 24h), không phải lịch sử thật. `_usage_score` **luôn trả 0** (bug đã biết, `sql_attribute_suggester.py:69-110`) → ranking theo tần suất không hoạt động.
-- Lịch sử compile: `public.semantic_compilation_history` (1 dòng/pass, tất cả DB). Pass bị stop/crash để `status` NULL mãi.
+### 2.3 Semantic Compilation (`semantic/compile.py` $\rightarrow$ `pipeline.py:compile_semantic_layer` L253–366)
+- **Table selection:** `fetch_all_tables_without_term` selects **only** tables that do not yet have an associated `Term`. Processed across 3 worker threads and committed in canonical order.
+- **Per-table pipeline (`visit_enter.py:process_table` L753):**
+  - **Data Profiling:** Executes `SELECT * LIMIT 1000` (without `ORDER BY`, reading heap order) with a 120s timeout. Extracts top-5 frequent values. **Excludes** `date`, `time`, and `uuid` columns from sampling; drops string values longer than 30 characters. Runs a `SELECT DISTINCT` probe on text columns with $< 5$ distinct values in the 1,000-row sample, retaining the full list if total distinct values $\le 25$.
+  - **FK Suggester (LLM):** Used exclusively to exclude likely foreign-key columns from becoming `ColumnAttribute` candidates; **does not write relationship edges**. Flags junction/bridge tables.
+  - **Term Extractor:** Prompts the LLM to *"prefer ONE Term per table"*, passing at most 40 columns into the prompt. Falls back to a deterministic 1:1 table-to-term mapping if the LLM call fails. Pure junction/bridge tables (consisting entirely of FKs) **receive no `Term`** $\rightarrow$ causing them to be re-processed on **every subsequent compilation pass**.
+  - **Vector Embedding (`vdb.semantic_layer`):** Embeds `"Term: <name>. <desc>"` and `"ColumnAttribute: <attr> of Term <term> (<synonyms>). <desc><samples>"`.
+- **Global post-table stages (re-executed on every compilation pass across the entire DB):** `resolve_semantic_fks` $\rightarrow$ `suggest_sql_attributes` $\rightarrow$ `build_bridge_tables_sql_attributes`.
+- **Semantic FK Resolution (`semantic/semantic_fk.py`):** For each unlinked column, retrieves top $3+3$ k-NN candidates from `ColumnAttribute` records marked `is_unique=True`, asks the LLM to pick a target (or `null`), and if `null`, probes whether **100%** of distinct sample values in the source column exist in the target column. Finally, `prune_disjoint_semantic_fks` deletes any edge whose source and target columns share zero overlapping values. **No numeric confidence score is stored** (strictly binary).
+- **SQL Attributes from Query History:** On PostgreSQL, the extractor queries `pg_stat_activity` (capturing only currently active or recently cached sessions within 24h, not a persistent query log). Worse, `_usage_score` **always returns `0`** due to a known bug (`sql_attribute_suggester.py:69-110`), rendering frequency-based ranking non-functional.
+- **Compilation History:** Tracked in `public.semantic_compilation_history` (1 row per pass across all databases). If a pass crashes or is stopped, its `status` remains `NULL` indefinitely.
 
-### Hệ quả lab — ràng buộc cho generator
-- **Bẫy phải nằm trong 1000 dòng đầu** của mỗi bảng (không ORDER BY, thực tế là thứ tự heap). Sinh data sao cho distribution của 1000 dòng đầu đại diện.
-- Cột enum/status phải là **text, ≤ 25 distinct**, giá trị ≤ 30 ký tự → mới vào sample_values.
-- **Semantic FK trap** (JOIN không FK vật lý): cột nguồn và đích **phải có giá trị chung đủ nhiều**, và cột đích phải `is_unique` trong 1000 dòng đầu. Nếu không, edge bị prune hoặc không bao giờ được đề xuất → bẫy thành vô nghĩa.
-- Cột ngày **không bao giờ có sample** → bẫy `ambiguous_date` chỉ phân biệt được qua **tên cột và description**. Đây là lý do nên có arm B (schema+metadata).
-- Bridge table không có Term → câu hỏi JOIN qua bridge test đường `bridgeTable` sql_attribute.
-- Mỗi re-ingest = re-embed toàn bộ data layer; mỗi compile pass = chạy lại 3 stage cho cả DB → budget LLM theo đó.
-
----
-
-## 3. Answer path (`POST /api/chat/completions`)
-
-- 409 nếu chưa có Term `source='semantic'` nào (`router.py:566`). 409 nếu conversation đang chạy. Chạy trong subprocess worker, **1 warm standby**.
-- Graph (`text_to_sql_graph.py:329-612`, `recursion_limit=45`), model role:
-  1. `question_intent` (NON_REASONING) → information / prediction / calculation; mặc định calculation.
-  2. `question_extraction` (NON_REASONING) → entities, subject.
-  3. `retrieve_candidates`: k-NN semantic index — CustomAnalysis k=3, SqlAttribute k=3, ColumnAttribute k=3 (evidence) + k=2/entity, Term k=1 (subject). LLM "intent filter" làm reranker. **RERANK model không được gọi.**
-  4. `prepare_candidates`: LLM chọn anchor column, join path từ FK + semantic FK, thêm bảng từ data index (cap 20), LLM table-relevance filter (bỏ qua nếu ≤ 2 bảng).
-  5. `construct_sql_from_candidates` (**REASONING**): structured output `{thought, sql_code, response}`; 3×3 lần thử.
-  6. `validate_sql_query`: sqlglot + LLM intent validation; nếu LLM fail → coi là hợp lệ.
-  7. `execute_sql_query` (timeout 30s mặc định) → lỗi → `reconstruct_sql` (LLM phân loại + viết lại), tối đa **7** lần.
-  8. Empty result → `check_empty_like_result`, `check_value_repair` (probe DB).
-  9. Hết → `unconstructable_sql_response`; toàn pipeline chạy lại 1 lần nữa (`_MAX_FULL_PIPELINE_ATTEMPTS=2`); lần 2 fail → trả **SQL cuối cùng bị intent-validation từ chối** như fallback (`returned_deterministic_fallback`, không đánh dấu trong payload).
-- `validate_sql_values`, `calculation_only`, `shorten_answer`, `sql_examples`, `value_anchors` là payload-only → **production HTTP không bật**.
-- `response` (prose) được LLM viết **trước** khi SQL chạy; không có LLM call sau execute.
-
-### Prompt sinh SQL chứa gì (`sql_from_semantic.py:207-348`)
-Có: custom prompts, evidence, calculation template, custom analyses (name/desc/sql), sql attributes (name/desc/expression/full_query/term), **term synonyms**, acronyms, schema các bảng được chọn (table description, pk, cột: type/nullable/semantic_fk target/**column description**/**sample_values**/format), join paths, example SQL từ custom analyses.
-**Không có**: ColumnAttribute description (chỉ ảnh hưởng retrieval), Term description (chỉ retrieval), tag, zone, PII flag, **mọi cờ certified**.
-
-### Phân loại kết quả từ SSE
-- Abstain: `sql_code==""` và `sql_response_from_db==null`.
-- Information-type: cũng `sql_code==""`, phân biệt qua `step` event `node=="information_agent"`.
-- Deterministic fallback: `sql_code!=""` nhưng không có rows; chỉ thấy trong log WARNING.
-
-### Hệ quả lab
-- Arm C' qua gateway chạy **tuần tự**, timeout client ≥ 900s, header `x-auto-ontology-source: lab-<suite>`, conversation mới mỗi câu.
-- Latency: `GET /api/analytics` (admin) → `response_timestamp - question_timestamp`, filter `source`.
-- Token: proxy log trước model endpoint. Ước lượng success path: ~7–8 NON_REASONING + 1 REASONING + ~3+N EMBED; mỗi vòng repair +2 NON_REASONING.
-- Suite 6: 30 câu unanswerable → đo (a) coverage từ `/api/question-entity-coverage`; (b) chat trả SQL hay abstain; (c) nếu trả SQL, SQL có "chạy được nhưng vô nghĩa" không.
+### Lab Implications — Constraints for the Synthetic Data Generator
+- **Schema traps must reside within the first 1,000 rows** of every table (since profiling runs `SELECT * LIMIT 1000` without `ORDER BY`). Synthetic data generation must ensure the first 1,000 rows reflect the target distributions.
+- Categorical/status columns must use **`text` data types with $\le 25$ distinct values** and string lengths $\le 30$ characters so they are captured in `sample_values`.
+- **Semantic FK traps** (implicit joins without physical FK constraints): the source and target columns **must share overlapping values**, and the target column must evaluate to `is_unique=True` within the first 1,000 rows. Otherwise, the edge is pruned or never proposed, invalidating the test case.
+- **Date columns never have `sample_values`:** consequently, `ambiguous_date` traps can only be disambiguated via **column names and descriptions** — motivating the inclusion of **Arm B (`schema+metadata`)**.
+- **Bridge tables have no `Term`:** queries joining across a many-to-many bridge table specifically exercise the `bridgeTable` `sql_attribute` synthesis path.
+- Every re-ingest wipes and re-embeds the entire data objects vector layer, and every compilation pass re-runs the 3 global stages across the entire database — plan LLM token budgets accordingly.
 
 ---
 
-## 4. Certification, write API, export
+## 3. Query Answering Pipeline (`POST /api/chat/completions`)
 
-- Cờ: `term.name_certified/description_certified`, `column_attribute.certified`, `sql_attribute.certified`, `catalog_*.description_certified`. Rollup Term = certified / partial / pending (`dal/terms.py:156-239`). Không có workflow/audit.
-- Write (qua `:3000`, cần `catalog:edit` = admin hoặc owner-group): `PATCH /api/terms/{id}`, `PATCH /api/terms/{id}/column-attributes/{attr}` (có `sample_values` → ghi vào `catalog_column`), `PATCH|PUT /api/sql-attributes/{id}`, `PATCH /api/nodes/{id}`. Chỉ `PUT` sql-attribute re-parse SQL. Không có POST tạo Term rỗng.
-- Thứ **thực sự** đổi câu trả lời: `description`/`name` (re-embed), `sample_values` (vào prompt), sql attribute, custom analysis, acronyms, custom prompts. Có hiệu lực ngay câu hỏi sau.
-- Export `POST /api/model/export {databases:[], format:"auto_ontology"|"ossie", include_ontology}` → YAML. Có: catalog + sample_values + FK/join/semantic_fk + sql attributes + custom analyses. **Không có** certified, synonyms, owner, tag, zone. 3 list quan hệ không có thứ tự.
-- Import `replace=true` mặc định; bug mở #250, #265, #267.
-- Quy trình kiểm chứng chính thức của NVIDIA (`skills/nvidia-ontology-management/references/publication.md`): export + SHA-256 → apply → re-export → so sánh exact IDs/structure/counts → probe. **Lab dùng đúng quy trình này** cho Suite 1 và 4.
+- Returns `HTTP 409` if the database has zero `Term` records with `source='semantic'` (`router.py:566`), or if a turn is already active on the conversation. Executes inside a subprocess worker pool maintaining **only 1 warm standby worker**.
+- **LangGraph Execution Pipeline (`text_to_sql_graph.py:329-612`, `recursion_limit=45`):**
+  1. `question_intent` (`NON_REASONING`) $\rightarrow$ classifies intent as `information` / `prediction` / `calculation` (defaults to `calculation`).
+  2. `question_extraction` (`NON_REASONING`) $\rightarrow$ extracts candidate entities and subject.
+  3. `retrieve_candidates`: runs k-NN searches against `vdb.semantic_layer` — `CustomAnalysis` ($k=3$), `SqlAttribute` ($k=3$), `ColumnAttribute` ($k=3$ for evidence + $k=2$ per entity), and `Term` ($k=1$ for subject). An LLM "intent filter" acts as the reranker; **the configured `RERANK` model is never called here.**
+  4. `prepare_candidates`: LLM selects anchor columns, traverses join paths over physical FKs + `semantic_fk` edges, augments with up to 20 tables from `vdb.data_objects_layer`, and applies an LLM table-relevance filter (skipped if $\le 2$ tables).
+  5. `construct_sql_from_candidates` (**`REASONING`**): produces structured output `{thought, sql_code, response}` with $3 \times 3$ retry attempts.
+  6. `validate_sql_query`: runs `sqlglot` syntax parsing + LLM intent validation; if the validation LLM call errors out, the query is assumed valid.
+  7. `execute_sql_query` (default 30s timeout) $\rightarrow$ on execution error, transitions to `reconstruct_sql` (LLM error classification + rewrite) for up to **7 retries**.
+  8. On empty result set $\rightarrow$ invokes `check_empty_like_result` and `check_value_repair` (probing actual DB values).
+  9. If all retries fail $\rightarrow$ transitions to `unconstructable_sql_response`; re-runs the entire pipeline a second time (`_MAX_FULL_PIPELINE_ATTEMPTS=2`). If the second attempt also fails, it **returns the last SQL query rejected by intent validation** as a silent fallback (`returned_deterministic_fallback`, unmarked in the client response payload).
+- Internal flags `validate_sql_values`, `calculation_only`, `shorten_answer`, `sql_examples`, and `value_anchors` are internal payload fields **not exposed by the production HTTP route**.
+- The natural-language `response` prose is generated by the LLM **before** the SQL query is executed against the database; no post-execution LLM summarization call occurs.
+
+### What Enters the Final SQL Generation Prompt (`sql_from_semantic.py:207-348`)
+- **Included:** custom prompts, evidence, calculation templates, custom analyses (`name`, `description`, `sql`), SQL attributes (`name`, `description`, `expression`, `full_query`, `term`), **term synonyms**, acronyms, selected table schemas (table description, PK, columns with type, nullability, `semantic_fk` target, **column description**, **`sample_values`**, format), join paths, and example SQL from custom analyses.
+- **Excluded:** `ColumnAttribute` descriptions (used only during vector retrieval), `Term` descriptions (retrieval only), tags, zones, PII flags, and **all `certified` flags**.
+
+### Classifying SSE Stream Responses
+- **True Abstention:** `sql_code == ""` and `sql_response_from_db == null`.
+- **Information-Only Response:** Also produces `sql_code == ""`, distinguishable via the SSE `step` event where `node == "information_agent"`.
+- **Silent Deterministic Fallback:** `sql_code != ""` accompanied by empty rows; only identifiable via backend `WARNING` logs.
+
+### Lab Implications
+- Execute **Arm C' (production gateway)** sequentially with client timeout $\ge 900\text{s}$, header `x-auto-ontology-source: lab-<suite>`, and a fresh conversation per question.
+- Extract server-side latency via `GET /api/analytics` (admin token) as `response_timestamp - question_timestamp`, filtered by `source`.
+- Estimate ~7–8 `NON_REASONING` calls + 1 `REASONING` call + $3 + N$ `EMBED` calls on the happy path (plus 2 `NON_REASONING` calls per SQL repair iteration).
+- In Suite 6 (30 unanswerable questions), measure: (a) coverage scores from `/api/question-entity-coverage`; (b) whether chat returns SQL or abstains; and (c) when it returns SQL, whether that SQL executes without error to produce semantically meaningless results.
 
 ---
 
-## 5. Eval harness chính thức (`auto-ontology-eval`)
+## 4. Certification, Write APIs, and Model Interchange
 
-- Pin `auto-ontology-server @ dd78d068` (không phải main), `nemo-gym==0.7.0`, Python 3.13.
-- **Ingest/compile in-process**, không qua API. Dataset Postgres: `datasets/<db>/{evaluation.json, metadata.json?, custom_analyses.json?, ddl/, data/}`; tên folder = `current_database()` = `db_id` (case-sensitive).
-- **Control**: 1 call LLM, prompt = question + evidence + **toàn bộ folder `ddl/` nối lại** (DDL thô, không sample, không metadata). SQL extract bằng regex bird_sql: `--` comment **cắt mất phần sau**, whitespace trong literal bị collapse.
-- **Treatment**: `stream_agent_response` trực tiếp với `validate_sql_values=True, calculation_only=True, shorten_answer=True`; lấy `sql_code` raw. Nhận `metadata.json` descriptions + value_examples + custom analyses mà control không có. Abstain = `no_model_output` → tính vào health gate 5%.
-- Evidence đưa cho **cả hai** arm.
-- Scorer: `set(gold)==set(pred)` — bỏ duplicate, bỏ order, **không tolerance float**, cột thừa = fail. Gold lỗi → loại task khỏi cả 2 arm. **Không read-only transaction, không statement_timeout server-side**, dùng DSN đầu tiên trong `CONNECTION_STRINGS`.
-- Model control (`GYM_MODEL`) và treatment (`REASONING_MODEL`) cấu hình riêng, **không bị ép bằng nhau**. Temperature không set. Không seed, 1 rollout/task, không CI.
-- Thêm arm 3: ~100–150 dòng, chạm `tasks.py` (Arm literal, `SERVER_FOR_ARM`, `_schema_for`), `ddl.py` (`metadata_description_block`), copy `resources_servers/schema_only_sql/` → `schema_metadata_sql/`, `main.py` (`RUN_LABEL`, compare pairwise).
-
-### Bất đối xứng phải công bố khi dùng harness
-1. Model không ép bằng nhau; treatment có thêm embed + non-reasoning model.
-2. Control 1 call không DB; treatment ~19–23 call, **chạy SQL và probe giá trị trên DB thật** khi sinh.
-3. Treatment có metadata/sample/custom analyses; control chỉ DDL.
-4. Regex extract control có thể cắt SQL; treatment dùng raw.
-5. Abstain của treatment chặn report; control không có SQL block → `SELECT 1` → miss im lặng.
-6. Treatment knob `validate_sql_values`, `calculation_only` **không có trong production**.
+- **Certification Columns:** `term.name_certified`, `term.description_certified`, `column_attribute.certified`, `sql_attribute.certified`, and `catalog_*.description_certified`. Term-level rollup status (`certified` / `partial` / `pending`) is computed dynamically (`dal/terms.py:156-239`). There is no approval workflow or audit trail.
+- **Write Endpoints (via `:3000`, requiring `catalog:edit` = admin or owner group):** `PATCH /api/terms/{id}`, `PATCH /api/terms/{id}/column-attributes/{attr}` (passing `sample_values` writes directly to `catalog_column`), `PATCH|PUT /api/sql-attributes/{id}`, and `PATCH /api/nodes/{id}`. Only `PUT /api/sql-attributes/{id}` re-parses the underlying SQL expression. There is no `POST` endpoint to create an empty `Term`.
+- **Edits that genuinely alter query generation:** modifying `description` or `name` (triggers re-embedding), updating `sample_values` (injected into the SQL prompt), and creating/updating `sql_attribute`, `custom_analysis`, `acronyms`, or `custom_prompts`. Changes take effect immediately on the next query.
+- **Model Export (`POST /api/model/export {databases:[], format:"auto_ontology"|"ossie", include_ontology}`):** Returns YAML containing catalog schema, `sample_values`, `foreign_keys`, `joins`, `semantic_fks`, `sql_attributes`, and `custom_analyses`. **Omits** `certified` flags, synonyms, owners, tags, and zones. The 3 relationship lists are returned in non-deterministic order.
+- **Model Import:** Defaults to `replace=true` (see open upstream issues #250, #265, #267).
+- **Official Verification Protocol (`skills/nvidia-ontology-management/references/publication.md`):** Export YAML + SHA-256 $\rightarrow$ apply edits $\rightarrow$ re-export $\rightarrow$ verify exact IDs/structures/counts $\rightarrow$ run probe questions. **The lab adopts this exact verification protocol** for Suites 1 and 4.
 
 ---
 
-## 6. Quyết định pin
+## 5. Official Evaluation Harness (`auto-ontology-eval`)
 
-| Lựa chọn | Ưu | Nhược |
+- Pins `auto-ontology-server @ dd78d068` (older than `main`), `nemo-gym == 0.7.0`, and Python 3.13.
+- **Runs ingestion and compilation in-process** rather than through HTTP APIs. Expects PostgreSQL dataset layout: `datasets/<db>/{evaluation.json, metadata.json?, custom_analyses.json?, ddl/, data/}`, where the folder name matches `current_database()` and `db_id` (case-sensitive).
+- **Control Arm (`schema-only`):** Single LLM call with prompt = question + evidence + **all files in `ddl/` concatenated** (raw DDL without samples or metadata). Extracts SQL via the `bird_sql` regex — notably, inline `--` comments **truncate the remainder of the query** because newlines are collapsed prior to stripping comments.
+- **Treatment Arm (`ontology`):** Calls `stream_agent_response` directly in Python with `validate_sql_values=True`, `calculation_only=True`, and `shorten_answer=True`, extracting raw `sql_code`. Receives `metadata.json` descriptions, `value_examples`, and `custom_analyses` that are withheld from the Control arm. Any abstention counts as `no_model_output` against the 5% health gate.
+- `evidence` hints are provided to **both** arms.
+- **Scorer:** Compares `set(gold_rows) == set(pred_rows)` — ignoring duplicate rows and row ordering, with **zero floating-point tolerance**, and failing any query that returns extra columns. If a gold SQL query fails to execute, the task is silently dropped from both arms. The scorer connects using the first DSN in `CONNECTION_STRINGS` **without setting a read-only transaction or server-side `statement_timeout`**.
+- Control (`GYM_MODEL`) and Treatment (`REASONING_MODEL`) models are configured via separate variables and **are not enforced to match**. Temperature and random seeds are unset, running 1 rollout per task.
+- **Adding Arm B (`schema+metadata`) to the harness:** Requires ~100–150 lines touching `tasks.py` (`Arm` literal, `SERVER_FOR_ARM`, `_schema_for`), `ddl.py` (`metadata_description_block`), copying `resources_servers/schema_only_sql/` $\rightarrow$ `schema_metadata_sql/`, and updating `main.py` (`RUN_LABEL` and pairwise comparison).
+
+### Asymmetries That Must Be Disclosed When Citing Harness Numbers
+1. Control and Treatment models are not automatically locked to the same model endpoint, and Treatment additionally invokes `EMBED` and `NON_REASONING` models.
+2. Control makes 1 LLM call with zero DB access; Treatment makes ~19–23 LLM calls and **executes candidate SQL + value probes directly against the live evaluation database** during generation.
+3. Treatment receives `metadata.json` descriptions, sample values, and custom analyses that Control never sees.
+4. Control's regex SQL extractor truncates queries containing `--` comments, whereas Treatment uses structured output.
+5. Treatment abstentions trip the 5% health gate, whereas Control extraction failures fall back to `SELECT 1` and count as ordinary misses.
+6. Treatment enables `validate_sql_values` and `calculation_only`, which **cannot be enabled via the production HTTP API**.
+
+---
+
+## 6. Commit Pinning Strategy
+
+| Option | Pros | Cons |
 |---|---|---|
-| Pin `dd78d068` (theo eval repo) | Dùng được harness nguyên bản cho Suite 2 | Cũ hơn main ~1 tháng; Suite 4 đo trên code cũ |
-| Pin `c447003f` (main hiện tại) | Mới nhất, đúng với hành vi hôm nay | Harness có thể lệch (connector naming, payload); phải sửa |
+| **Pin `dd78d068`** (matching `auto-ontology-eval`) | Runs the upstream evaluation harness out-of-the-box for Suite 2 | ~1 month behind `main`; Suite 4 would evaluate an older codebase |
+| **Pin `c447003f`** (current `main`) | Evaluates the latest v1.2.0 architecture and current schema evolution behavior | Harness may require minor adapter fixes (connector naming / payload fields) |
 
-**Khuyến nghị**: pin `c447003f` cho stack chạy (Suite 1, 4, 5, 6, C'); chạy harness Suite 2 trên **cùng** stack bằng cách sửa pin trong `pyproject.toml` của eval repo và test smoke 5 câu. Nếu vỡ, fallback pin `dd78d068` cho **riêng** Suite 2 và ghi rõ hai commit trong `freeze.yaml`. Không trộn.
-
----
-
-## 7. Checklist môi trường "giống production"
-
-- [ ] `:3001`, `:3002` không expose ra ngoài máy; lab script dùng `:3000` + `x-api-key`. Ngoại lệ duy nhất: `:3002/ingest` và `:3002/semantic/status` cho Suite 4 (không có đường public), ghi rõ trong report.
-- [ ] 1 admin + 1 viewer; token viewer cho hỏi, token admin cho certify/export/analytics.
-- [ ] `semantic_compilation_enabled=true`, `pii_detection_enabled=true` qua `PUT /api/configurations/...` (không ghi thẳng bảng).
-- [ ] Pin toàn bộ model triplet; `EMBED_*` giống nhau giữa ingestion và backend; `LLM_MAX_INFLIGHT` ≤ 6.
-- [ ] `CONNECTION_STRINGS` **rỗng**, mọi connection thêm qua UI/API (tránh precedence lệch: ingestion ưu tiên env, chat ưu tiên UI).
-- [ ] Role Postgres read-only cho source DB, `default_transaction_read_only=on`, `statement_timeout`.
-- [ ] Proxy log trước model endpoint để đếm token.
-- [ ] Snapshot trước mỗi suite: `public.*` (catalog + semantic + `semantic_compilation_history`), `frontend.configurations`, `frontend.conversation_analytics`, `vdb.*`. Restore bằng `pg_restore`, không "chạy tiếp".
-- [ ] Không `git pull` upstream trong suốt lab. Schema upstream đổi ~4–5 ngày/lần (7 migration trong 4 tuần).
+**Decision:** Pin `c447003f` for the live stack (used across Suites 1, 4, 5, 6, and Arm C'). Attempt to run the Suite 2 harness against `c447003f` by updating `pyproject.toml` in the eval repo and running a 5-question smoke test. If incompatible, run Suite 2 (Arm C harness) in an isolated environment pinned to `dd78d068` and explicitly document both commit hashes in `config/freeze.yaml`.
 
 ---
 
-## 8. Bảng tra nhanh: endpoint lab cần
+## 7. Production-Equivalent Environment Checklist
 
-| Việc | Gọi | Auth |
+- [ ] Do not call `:3001` or `:3002` from normal lab clients; route all traffic through `:3000` + `x-api-key`. The sole exception is calling `:3002/ingest`, `:3002/semantic/status`, and `:3002/semantic/reset` inside Suite 4 (since no public routes exist), which must be explicitly noted in the report.
+- [ ] Provision 1 `admin` user and 1 `viewer` user; use the `viewer` token for question answering and the `admin` token for certification, export, and analytics.
+- [ ] Enable `semantic_compilation_enabled=true` and `pii_detection_enabled=true` via `PUT /api/configurations/...` rather than direct SQL writes.
+- [ ] Pin all model triplets (`REASONING`, `NON_REASONING`, `EMBED`, `RERANK`); ensure `EMBED_*` is identical between `ingestion-service` and `auto-ontology`; set `LLM_MAX_INFLIGHT <= 6`.
+- [ ] Leave `CONNECTION_STRINGS` **empty** in `.env` and register all database connections via the API (avoiding split-brain precedence where ingestion prefers `.env` while chat prefers UI-registered connections).
+- [ ] Enforce a read-only PostgreSQL role (`lab_ro`) for the target synthetic database with `default_transaction_read_only = on` and `statement_timeout = '30s'`.
+- [ ] Place an OpenAI-compatible logging proxy in front of model endpoints to record exact prompt and completion token counts.
+- [ ] Snapshot the catalog database before every suite: `public.*` (catalog + semantic + `semantic_compilation_history`), `frontend.configurations`, `frontend.conversation_analytics`, and `vdb.*`. Always restore via `pg_restore` prior to each run.
+- [ ] Never run `git pull` on upstream repositories once frozen.
+
+---
+
+## 8. Quick Reference: Endpoints Required by the Lab
+
+| Operation | Endpoint / Method | Required Auth |
 |---|---|---|
-| Thêm connection + ingest lần đầu | `POST /api/connections/test`, `POST /api/connections` | admin |
-| Re-ingest DB đã có (Suite 4) | `POST :3002/ingest {"database":"<db>"}` | **không có** — nội bộ |
-| Trigger compile | `POST /api/semantic-compilation/trigger` | admin |
-| Trạng thái compile | `GET /api/semantic-compilation/status` + `GET :3002/semantic/status` + bảng `semantic_compilation_history` | viewer / nội bộ / SQL |
-| Full rebuild 1 DB | `POST :3002/semantic/reset?database_name=<db>` (public reset = **tất cả** DB) | nội bộ |
-| Hỏi | `POST /api/chat/completions` SSE, header `x-auto-ontology-source` | viewer |
-| Coverage / answerable | `POST /api/question-entity-coverage {question, max_distance}` | viewer |
-| Certify | `PATCH /api/terms/{id}`, `/column-attributes/{attr}`, `/api/sql-attributes/{id}`, `/api/nodes/{id}` | admin |
-| Export ontology | `POST /api/model/export {"databases":[],"format":"auto_ontology"}` | admin |
-| Đọc cờ certified | `GET /api/terms`, `/api/terms/{id}`, `/api/terms/{id}/column-attributes`, `/api/sql-attributes` | viewer |
-| Latency | `GET /api/analytics?limit=500` | admin |
-| Thêm "reviewed" content | `PATCH description/sample_values`, `POST /api/sql-attributes`, `POST /api/custom-analyses` | admin |
+| Test & register DB connection (triggers initial ingest) | `POST /api/connections/test`, `POST /api/connections` | `admin` (`x-api-key`) |
+| Re-ingest an existing DB (Suite 4 only) | `POST :3002/ingest {"database": "<db>"}` | **None** (internal service port) |
+| Trigger semantic compilation | `POST /api/semantic-compilation/trigger` | `admin` |
+| Poll compilation status | `GET /api/semantic-compilation/status` + `GET :3002/semantic/status` + SQL table `semantic_compilation_history` | `viewer` / internal / SQL |
+| Full semantic reset for a single DB | `POST :3002/semantic/reset?database_name=<db>` *(Note: public `/api/semantic-compilation/reset` wipes **all** DBs)* | **None** (internal service port) |
+| Ask a question (Production Arm C') | `POST /api/chat/completions` (SSE, header `x-auto-ontology-source`) | `viewer` |
+| Check entity coverage / answerability | `POST /api/question-entity-coverage {question, max_distance}` | `viewer` |
+| Toggle `certified` flags | `PATCH /api/terms/{id}`, `/column-attributes/{attr}`, `/api/sql-attributes/{id}`, `/api/nodes/{id}` | `admin` |
+| Export compiled ontology | `POST /api/model/export {"databases": [], "format": "auto_ontology"}` | `admin` |
+| Read `certified` flags & synonyms | `GET /api/terms`, `/api/terms/{id}`, `/api/terms/{id}/column-attributes`, `/api/sql-attributes` | `viewer` |
+| Retrieve query latency metrics | `GET /api/analytics?limit=500` | `admin` |
+| Apply human content curation | `PATCH` `description` / `sample_values`, `POST /api/sql-attributes`, `POST /api/custom-analyses` | `admin` |
