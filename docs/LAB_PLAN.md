@@ -1,6 +1,6 @@
 # Auto-Ontology Lab — Kế hoạch thực nghiệm hoàn chỉnh
 
-> Tài liệu này là plan vận hành của lab. Nó bổ sung (không thay thế) `ARCHITECTURE_AND_EVAL_PLAN.md`: file kia mô tả kiến trúc pipeline; file này mô tả **làm gì, theo thứ tự nào, đo bằng gì, và khi nào gọi là xong**.
+> Tài liệu này là phần chi tiết của [`../PLAN.md`](../PLAN.md): metric, protocol, rủi ro. Đọc `PLAN.md` trước; ở đây "suite", "arm", "T0–T4" chỉ là nhãn tham chiếu khi viết code.
 
 > **Bản sửa đổi sau khi đọc source upstream** (xem `UPSTREAM_ARCHITECTURE.md`). Các mục dưới đây **ghi đè** phần tương ứng bên dưới khi có xung đột.
 
@@ -296,7 +296,7 @@ so với expected.json; kiểm tra 6 certified items còn/mất
 
 - Chạy ngoài process Auto-Ontology, đọc catalog DB + gọi ingestion API. Không sửa code upstream → vẫn tái lập trên commit đã pin.
 - Input: fingerprint schema trước/sau (lưu trong `patch/state/`).
-- Bốn hành vi như `ARCHITECTURE_AND_EVAL_PLAN.md` §1 Tầng 3: auto-rename migration, surgical column compile, orphan cleanup, incremental profiling.
+- Bốn hành vi như `PLAN.md` bước 5: auto-rename migration, surgical column compile, orphan cleanup, re-profile.
 - Mỗi hành vi là một hàm riêng, bật/tắt bằng flag → đo được **đóng góp từng phần**.
 - Output: báo cáo created / updated / retained / removed / unresolved — đúng format #258 yêu cầu.
 
