@@ -649,7 +649,7 @@ def build_parser() -> argparse.ArgumentParser:
     # report (Step 3: lab.report)
     report_mod = _try_import_cmd_module("lab.report")
     if report_mod is not None:
-        p_report = sub.add_parser("report", help="Write reports/RESULTS.md from the newest run of each suite.")
+        p_report = sub.add_parser("report", help="Write the dataset's results file from its newest run of each suite.")
         report_mod.add_arguments(p_report)
 
     return parser

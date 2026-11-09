@@ -18,6 +18,7 @@ from lab.common.errors import LabError
 
 RUNS_DIR = Path("reports/runs")
 DATASETS_DIR = Path("datasets")
+PUBLISHED_DATASET = "edu-public"
 EXIT_UNHEALTHY = 3
 MAX_INFRASTRUCTURE_RATE = 0.05
 BASELINES = ("ddl", "ddl+meta")
@@ -28,13 +29,21 @@ _UPSTREAM_DEFAULT_NON_REASONING = "nvidia/nemotron-3.5-lightning-30b-a3b"
 def add_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--dataset", default="edu-public")
     parser.add_argument("--run", action="append", type=Path, default=None, help="Run directory to include (repeatable). Default: the newest run of each suite.")
-    parser.add_argument("--out", type=Path, default=Path("reports/RESULTS.md"))
+    parser.add_argument(
+        "--out", type=Path, default=None,
+        help=f"Default: reports/RESULTS.md for {PUBLISHED_DATASET}, reports/RESULTS_<dataset>.md for any other.",
+    )
+
+
+def default_out(dataset: str) -> Path:
+    return Path("reports/RESULTS.md" if dataset == PUBLISHED_DATASET else f"reports/RESULTS_{dataset}.md")
 
 
 def run(args: argparse.Namespace) -> int:
-    runs = args.run or _newest_runs(RUNS_DIR)
+    runs = args.run or _newest_runs(RUNS_DIR, args.dataset)
     if not runs:
-        raise LabError(f"no runs found in {RUNS_DIR}")
+        raise LabError(f"no runs of dataset {args.dataset!r} found in {RUNS_DIR}")
+    args.out = args.out or default_out(args.dataset)
     tags = _load_tags(DATASETS_DIR / args.dataset / "question_tags.json")
     text, healthy = render(runs, tags, _load_expectations(DATASETS_DIR / args.dataset / "mutations"))
     args.out.parent.mkdir(parents=True, exist_ok=True)
@@ -405,12 +414,19 @@ def _stage_cell(stage: dict[str, Any] | None) -> str:
 # ---------------------------------------------------------------- helpers
 
 
-def _newest_runs(root: Path) -> list[Path]:
-    """The newest run directory holding each suite's output."""
+def _run_dataset(run_dir: Path) -> str | None:
+    meta = run_dir / "measure.json"
+    if not meta.is_file():
+        return None
+    return json.loads(meta.read_text(encoding="utf-8")).get("dataset")
+
+
+def _newest_runs(root: Path, dataset: str) -> list[Path]:
+    """The newest run directory of `dataset` holding each suite's output."""
     if not root.is_dir():
         return []
     chosen: list[Path] = []
-    dirs = sorted((d for d in root.iterdir() if d.is_dir()), reverse=True)
+    dirs = sorted((d for d in root.iterdir() if d.is_dir() and _run_dataset(d) == dataset), reverse=True)
     for name in ("discover.json", "ask.jsonl", "audit.json"):
         found = next((d for d in dirs if (d / name).is_file()), None)
         if found and found not in chosen:

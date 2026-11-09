@@ -5,7 +5,25 @@ from pathlib import Path
 
 import pytest
 
-from lab.report import bootstrap_ci, majority, mcnemar_exact, per_question, percentile, render, summarize_mode
+from lab.report import (
+    _newest_runs, bootstrap_ci, default_out, majority, mcnemar_exact, per_question, percentile, render, summarize_mode,
+)
+
+
+def test_newest_runs_ignores_other_datasets(tmp_path: Path) -> None:
+    def make(name: str, dataset: str, suite_file: str) -> Path:
+        d = tmp_path / name
+        d.mkdir()
+        (d / "measure.json").write_text(json.dumps({"dataset": dataset}), encoding="utf-8")
+        (d / suite_file).write_text("{}", encoding="utf-8")
+        return d
+
+    mine = make("20260101T000000Z", "edu-public", "ask.jsonl")
+    make("20260102T000000Z", "other", "ask.jsonl")
+    (tmp_path / "20260103T000000Z").mkdir()  # an import run: no measure.json
+    assert _newest_runs(tmp_path, "edu-public") == [mine]
+    assert default_out("edu-public") == Path("reports/RESULTS.md")
+    assert default_out("other") == Path("reports/RESULTS_other.md")
 
 
 def _row(mode: str, run: int, qid: str, outcome: str, category: str = "simple", seconds: float = 1.0) -> dict:
