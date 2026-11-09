@@ -157,7 +157,8 @@ def discover_datasets() -> list[Path]:
         has_subdir = (child / "schema" / "schema.sql").is_file() and (
             (child / "seed.sql").is_file() or (child / "generate.py").is_file()
         )
-        if has_flat or has_subdir:
+        has_manifest = bool(resolve_sql_load_order(child, auto_generate=False))
+        if has_flat or has_subdir or has_manifest:
             found.append(child)
     return found
 
