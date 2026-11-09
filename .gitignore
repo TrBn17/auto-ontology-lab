@@ -1,6 +1,11 @@
 # Local generated datasets (never publish to Git)
 /datasets/*
 !/datasets/.gitkeep
+!/datasets/edu-public/
+
+# Catalog snapshots can hold live connection credentials; raw run artefacts stay local
+/snapshots/
+/reports/runs/
 
 # Environment variables & API keys
 .env
@@ -21,3 +26,7 @@ venv/
 # OS / Editor files
 .DS_Store
 Thumbs.db
+
+# Upstream clone (pinned in config/freeze.yaml) and local tool state
+/auto-ontology/
+.superpowers/
