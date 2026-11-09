@@ -1,0 +1,38 @@
+# Routes the stack's chat models through lab/proxy/llm_proxy.py (upstream issue #440).
+# Embedding and rerank calls do not use structured output, so they stay on their own endpoints.
+#
+#   docker compose -f auto-ontology/docker-compose.yml -f config/compose.llm-proxy.yml \
+#     up -d --no-build --no-deps llm-proxy auto-ontology ingestion-service
+#
+# Relative paths resolve against auto-ontology/, the first file's directory.
+x-proxied-endpoints: &proxied-endpoints
+  DEFAULT_MODELS_ENDPOINT: http://llm-proxy:8080/v1
+  REASONING_ENDPOINT: http://llm-proxy:8080/v1
+  NON_REASONING_ENDPOINT: http://llm-proxy:8080/v1
+  # Upstream's default for this role exhausts its token limit on most calls (docs/FINDINGS.md F4).
+  # Must match models.non_reasoning in config/freeze.yaml.
+  NON_REASONING_MODEL: ${LAB_NON_REASONING_MODEL:-nvidia/nemotron-3.5-super-vl-120b-a12b}
+  REASONING_MODEL: ${LAB_REASONING_MODEL:-nvidia/nemotron-3.5-lightning-30b-a3b}
+
+services:
+  llm-proxy:
+    image: auto-ontology:latest
+    container_name: lab-llm-proxy
+    restart: unless-stopped
+    entrypoint: ["python", "/proxy/llm_proxy.py"]
+    healthcheck:
+      disable: true  # The image's own check targets the backend, which does not run here.
+    environment:
+      LLM_PROXY_UPSTREAM: https://integrate.api.nvidia.com/v1
+    volumes:
+      - ../lab/proxy:/proxy:ro
+
+  auto-ontology:
+    environment: *proxied-endpoints
+    depends_on:
+      - llm-proxy
+
+  ingestion-service:
+    environment: *proxied-endpoints
+    depends_on:
+      - llm-proxy

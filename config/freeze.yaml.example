@@ -29,4 +29,6 @@ flags:
 endpoints:
   gateway: http://localhost:3000        # Only production entrypoint for lab clients
   ingestion_internal: http://localhost:3002   # ONLY used in Suite 4 (/ingest, /semantic/reset, /semantic/status)
-containers: {postgres: postgres, backend: auto-ontology, ingestion: ingestion-service, frontend: frontend}
+# container_name values from docker-compose.yml, not the compose service names
+containers: {postgres: postgres, backend: auto-ontology, ingestion: auto-ontology-ingestion-service, frontend: auto-ontology-frontend}
+catalog: {database: auto_ontology, superuser: postgres}

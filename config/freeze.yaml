@@ -1,0 +1,35 @@
+# Frozen lab environment. Model values were read from the running backend container.
+frozen_at: "2026-11-07"
+upstream:
+  auto_ontology:
+    repo: https://github.com/NVIDIA/auto-ontology
+    commit: c447003f72a822301e927196a4ecb5b597c308d5
+    version: "1.2.0"
+    alembic_head: 99d4d343dd0b
+  auto_ontology_eval:
+    repo: https://github.com/NVIDIA/auto-ontology-eval
+    commit: ec41b2c5b795637759297b90c1d19b42693200f9
+    pins_auto_ontology_commit: dd78d0689ef9a8e062af90a294fa903cb6643015   # DIFFERS from stack commit — see UPSTREAM_ARCHITECTURE.md §6
+    nemo_gym: "0.7.0"
+models:   # Every role must be explicitly specified; EMBED must match between ingestion and backend
+  reasoning:     {endpoint: "https://integrate.api.nvidia.com/v1", model: "nvidia/nemotron-3.5-lightning-30b-a3b"}
+  non_reasoning: {endpoint: "https://integrate.api.nvidia.com/v1", model: "nvidia/nemotron-3.5-super-vl-120b-a12b"}   # Not upstream's default; see docs/FINDINGS.md F4
+  embed:         {endpoint: "https://integrate.api.nvidia.com/v1", model: "nvidia/nemotron-3-embed-1b"}
+  rerank:        {endpoint: "https://ai.api.nvidia.com/v1/retrieval/nvidia/nemotron-3.5-rerank-8b/reranking", model: "nvidia/nemotron-3.5-rerank-8b"}   # Unused during query answering; used only during compilation
+  gym_control:   {endpoint: "https://integrate.api.nvidia.com/v1", model: "nvidia/nemotron-3.5-lightning-30b-a3b"}   # Must equal reasoning model for a fair comparison
+flags:
+  llm_proxy: guided_json_to_top_level   # lab/proxy/llm_proxy.py; see docs/FINDINGS.md F2
+  semantic_compilation_enabled: true
+  pii_detection_enabled: true
+  distinct_value_probing_enabled: true
+  sql_query_timeout_seconds: 30
+  INTERACTIVE: false
+  DB_PROBE_PROACTIVE: false
+  DB_PROBE_JOIN_PATH_CHECK: false
+  LLM_MAX_INFLIGHT: 6
+endpoints:
+  gateway: http://localhost:3000        # Only production entrypoint for lab clients
+  ingestion_internal: http://localhost:3002   # ONLY used in Suite 4 (/ingest, /semantic/reset, /semantic/status)
+# container_name values from docker-compose.yml, not the compose service names
+containers: {postgres: postgres, backend: auto-ontology, ingestion: auto-ontology-ingestion-service, frontend: auto-ontology-frontend}
+catalog: {database: auto_ontology, superuser: postgres}
