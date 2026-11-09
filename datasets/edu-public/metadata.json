@@ -1,0 +1,17 @@
+{
+  "dept_mst": {"description": "Academic departments.", "columns": {"dept_cd": "Department code.", "dept_nm": "Department name."}},
+  "std_mst": {"description": "Students.", "columns": {"std_id": "Student id.", "full_nm": "Full name.", "email": "Email address.", "phone": "Phone number.", "dept_cd": "Department code of the student.", "rec_sts": "Record status. 'deleted' means soft-deleted, so reports about students count only 'active'.", "created_at": "Date the student joined the system."}},
+  "instr_mst": {"description": "Instructors.", "columns": {"instr_id": "Instructor id.", "full_nm": "Full name.", "email": "Email address.", "dept_cd": "Department code of the instructor.", "hire_dt": "Hire date."}},
+  "crs_mst": {"description": "Courses in the catalog.", "columns": {"crs_id": "Course id.", "crs_code": "Course code.", "title": "Course title.", "dept_cd": "Department code offering the course.", "credits": "Credit count.", "legacy_code": "Code from a retired system."}},
+  "term_mst": {"description": "Academic terms.", "columns": {"term_id": "Term id.", "term_cd": "Term code.", "start_dt": "First day of the term.", "end_dt": "Last day of the term."}},
+  "cls_mst": {"description": "Classes: one offering of a course in a term.", "columns": {"cls_id": "Class id.", "crs_id": "Course id.", "term_id": "Term id.", "start_date": "Date the class starts.", "capacity": "Maximum enrollments.", "cls_sts": "Class status: open, closed or cancelled."}},
+  "cls_instr": {"description": "Which instructors teach which classes.", "columns": {"cls_id": "Class id.", "instr_id": "Instructor id."}},
+  "enrollment": {"description": "A student enrolled in a class.", "columns": {"enr_id": "Enrollment id.", "std_id": "Student id.", "cls_id": "Class id.", "enrolled_at": "Date the student enrolled.", "created_at": "Date the record was entered into the system.", "enr_sts": "Enrollment status: enrolled, dropped or completed."}},
+  "cls_sess": {"description": "One meeting of a class.", "columns": {"sess_id": "Session id.", "cls_id": "Class id.", "sess_dt": "Session date.", "sess_sts": "Session status: held or cancelled."}},
+  "attendance": {"description": "A student's attendance at a session.", "columns": {"att_id": "Attendance id.", "sess_id": "Session id.", "std_id": "Student id.", "att_sts": "Attendance status: present, absent or late."}},
+  "assignment": {"description": "Work set for a class.", "columns": {"asg_id": "Assignment id.", "cls_id": "Class id.", "title": "Title.", "due_dt": "Due date.", "max_pts": "Maximum points."}},
+  "submission": {"description": "A student's submitted work.", "columns": {"sub_id": "Submission id.", "asg_id": "Assignment id.", "std_id": "Student id.", "submitted_at": "Date submitted.", "score": "Points awarded."}},
+  "grade": {"description": "Final grade for an enrollment.", "columns": {"enr_id": "Enrollment id.", "final_score": "Final score.", "letter": "Letter grade."}},
+  "invoice": {"description": "A bill issued to a student for a term.", "columns": {"inv_id": "Invoice id.", "code": "Invoice code, which payments refer to.", "std_id": "Student id.", "term_id": "Term id.", "amount": "Amount billed.", "issued_dt": "Date issued.", "inv_sts": "Invoice status: paid, unpaid or void."}},
+  "payment": {"description": "Money received.", "columns": {"pay_id": "Payment id.", "ref_code": "The invoice code this payment settles; there is no declared foreign key.", "amount": "Amount paid.", "paid_dt": "Date paid.", "method": "Payment method: card, transfer or cash."}}
+}

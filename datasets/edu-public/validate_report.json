@@ -1,0 +1,59 @@
+{
+  "dataset": "edu-public",
+  "overall_status": "passed",
+  "exit_code": 0,
+  "degraded_count": 0,
+  "degraded": [],
+  "degraded_acknowledged": false,
+  "repaired_checks": [],
+  "checks": {
+    "A1_canary": {
+      "status": "pass",
+      "violations": []
+    },
+    "A2_schema_fidelity": {
+      "status": "pass",
+      "violations": []
+    },
+    "A3_integrity": {
+      "status": "pass",
+      "violations": []
+    },
+    "A4_row_counts": {
+      "status": "pass",
+      "violations": []
+    },
+    "A5_cardinality": {
+      "status": "pass",
+      "violations": []
+    },
+    "A6_null_rate": {
+      "status": "pass",
+      "violations": []
+    },
+    "A7_categorical_l1": {
+      "status": "pass",
+      "violations": []
+    },
+    "A8_usability": {
+      "status": "pass",
+      "violations": []
+    },
+    "A9_determinism": {
+      "status": "pass",
+      "violations": []
+    },
+    "A11_first_1000_rows": {
+      "status": "pass",
+      "violations": []
+    },
+    "A12_implicit_fks": {
+      "status": "pass",
+      "violations": []
+    },
+    "A13_check_repair": {
+      "status": "pass",
+      "violations": []
+    }
+  }
+}

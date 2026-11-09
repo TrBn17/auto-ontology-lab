@@ -1,0 +1,14 @@
+{
+  "probes": ["s01", "s04", "j01", "j02", "j03", "m01", "d01", "x01", "x04", "n01"],
+  "edits": {
+    "certify_terms": ["public.std_mst", "public.crs_mst", "public.cls_mst"],
+    "description": {"table": "public.invoice", "text": "A bill issued to a student for one term. Reviewed by the lab."},
+    "sample_values": {"column": "public.enrollment.enr_sts", "values": ["enrolled", "dropped", "completed"]},
+    "sql_attribute": {
+      "table": "public.std_mst",
+      "name": "lab_active_student_count",
+      "description": "Number of students not soft-deleted.",
+      "expression": "SELECT count(*) FROM std_mst WHERE rec_sts = 'active'"
+    }
+  }
+}

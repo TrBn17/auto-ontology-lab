@@ -1,0 +1,12 @@
+{
+  "id": "m02",
+  "title": "Add a column to a compiled table",
+  "sql": [
+    "ALTER TABLE std_mst ADD COLUMN scholarship_pct numeric(5, 2)",
+    "UPDATE std_mst SET scholarship_pct = (std_id % 5) * 10"
+  ],
+  "expect": [
+    {"kind": "column_present", "column": "public.std_mst.scholarship_pct"},
+    {"kind": "attribute_on_column", "column": "public.std_mst.scholarship_pct"}
+  ]
+}

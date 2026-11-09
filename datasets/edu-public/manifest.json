@@ -1,0 +1,425 @@
+{
+  "dataset": "edu-public",
+  "load_order": [
+    "ddl/01_types.sql",
+    "ddl/02_tables.sql",
+    "data/_load.sql",
+    "ddl/03_fkeys.sql",
+    "ddl/04_views.sql"
+  ],
+  "row_counts": {
+    "public.dept_mst": 8,
+    "public.term_mst": 8,
+    "public.crs_mst": 150,
+    "public.instr_mst": 120,
+    "public.std_mst": 2000,
+    "public.cls_mst": 600,
+    "public.invoice": 3000,
+    "public.assignment": 1200,
+    "public.cls_instr": 699,
+    "public.cls_sess": 3000,
+    "public.enrollment": 6000,
+    "public.payment": 2500,
+    "public.attendance": 12000,
+    "public.grade": 4000,
+    "public.submission": 6000
+  },
+  "entities": [
+    {
+      "table": "public.dept_mst",
+      "pk": [
+        "dept_cd"
+      ],
+      "row_count": 8
+    },
+    {
+      "table": "public.term_mst",
+      "pk": [
+        "term_id"
+      ],
+      "row_count": 8
+    },
+    {
+      "table": "public.crs_mst",
+      "pk": [
+        "crs_id"
+      ],
+      "row_count": 150
+    },
+    {
+      "table": "public.instr_mst",
+      "pk": [
+        "instr_id"
+      ],
+      "row_count": 120
+    },
+    {
+      "table": "public.std_mst",
+      "pk": [
+        "std_id"
+      ],
+      "row_count": 2000
+    },
+    {
+      "table": "public.cls_mst",
+      "pk": [
+        "cls_id"
+      ],
+      "row_count": 600
+    },
+    {
+      "table": "public.invoice",
+      "pk": [
+        "inv_id"
+      ],
+      "row_count": 3000
+    },
+    {
+      "table": "public.assignment",
+      "pk": [
+        "asg_id"
+      ],
+      "row_count": 1200
+    },
+    {
+      "table": "public.cls_instr",
+      "pk": [
+        "cls_id",
+        "instr_id"
+      ],
+      "row_count": 699
+    },
+    {
+      "table": "public.cls_sess",
+      "pk": [
+        "sess_id"
+      ],
+      "row_count": 3000
+    },
+    {
+      "table": "public.enrollment",
+      "pk": [
+        "enr_id"
+      ],
+      "row_count": 6000
+    },
+    {
+      "table": "public.payment",
+      "pk": [
+        "pay_id"
+      ],
+      "row_count": 2500
+    },
+    {
+      "table": "public.attendance",
+      "pk": [
+        "att_id"
+      ],
+      "row_count": 12000
+    },
+    {
+      "table": "public.grade",
+      "pk": [
+        "enr_id"
+      ],
+      "row_count": 4000
+    },
+    {
+      "table": "public.submission",
+      "pk": [
+        "sub_id"
+      ],
+      "row_count": 6000
+    }
+  ],
+  "relationships": [
+    {
+      "kind": "fk",
+      "from": {
+        "table": "public.assignment",
+        "columns": [
+          "cls_id"
+        ]
+      },
+      "to": {
+        "table": "public.cls_mst",
+        "columns": [
+          "cls_id"
+        ]
+      }
+    },
+    {
+      "kind": "fk",
+      "from": {
+        "table": "public.attendance",
+        "columns": [
+          "sess_id"
+        ]
+      },
+      "to": {
+        "table": "public.cls_sess",
+        "columns": [
+          "sess_id"
+        ]
+      }
+    },
+    {
+      "kind": "fk",
+      "from": {
+        "table": "public.attendance",
+        "columns": [
+          "std_id"
+        ]
+      },
+      "to": {
+        "table": "public.std_mst",
+        "columns": [
+          "std_id"
+        ]
+      }
+    },
+    {
+      "kind": "fk",
+      "from": {
+        "table": "public.cls_instr",
+        "columns": [
+          "cls_id"
+        ]
+      },
+      "to": {
+        "table": "public.cls_mst",
+        "columns": [
+          "cls_id"
+        ]
+      }
+    },
+    {
+      "kind": "fk",
+      "from": {
+        "table": "public.cls_instr",
+        "columns": [
+          "instr_id"
+        ]
+      },
+      "to": {
+        "table": "public.instr_mst",
+        "columns": [
+          "instr_id"
+        ]
+      }
+    },
+    {
+      "kind": "fk",
+      "from": {
+        "table": "public.cls_mst",
+        "columns": [
+          "crs_id"
+        ]
+      },
+      "to": {
+        "table": "public.crs_mst",
+        "columns": [
+          "crs_id"
+        ]
+      }
+    },
+    {
+      "kind": "fk",
+      "from": {
+        "table": "public.cls_mst",
+        "columns": [
+          "term_id"
+        ]
+      },
+      "to": {
+        "table": "public.term_mst",
+        "columns": [
+          "term_id"
+        ]
+      }
+    },
+    {
+      "kind": "fk",
+      "from": {
+        "table": "public.cls_sess",
+        "columns": [
+          "cls_id"
+        ]
+      },
+      "to": {
+        "table": "public.cls_mst",
+        "columns": [
+          "cls_id"
+        ]
+      }
+    },
+    {
+      "kind": "fk",
+      "from": {
+        "table": "public.crs_mst",
+        "columns": [
+          "dept_cd"
+        ]
+      },
+      "to": {
+        "table": "public.dept_mst",
+        "columns": [
+          "dept_cd"
+        ]
+      }
+    },
+    {
+      "kind": "fk",
+      "from": {
+        "table": "public.enrollment",
+        "columns": [
+          "cls_id"
+        ]
+      },
+      "to": {
+        "table": "public.cls_mst",
+        "columns": [
+          "cls_id"
+        ]
+      }
+    },
+    {
+      "kind": "fk",
+      "from": {
+        "table": "public.enrollment",
+        "columns": [
+          "std_id"
+        ]
+      },
+      "to": {
+        "table": "public.std_mst",
+        "columns": [
+          "std_id"
+        ]
+      }
+    },
+    {
+      "kind": "fk",
+      "from": {
+        "table": "public.grade",
+        "columns": [
+          "enr_id"
+        ]
+      },
+      "to": {
+        "table": "public.enrollment",
+        "columns": [
+          "enr_id"
+        ]
+      }
+    },
+    {
+      "kind": "fk",
+      "from": {
+        "table": "public.instr_mst",
+        "columns": [
+          "dept_cd"
+        ]
+      },
+      "to": {
+        "table": "public.dept_mst",
+        "columns": [
+          "dept_cd"
+        ]
+      }
+    },
+    {
+      "kind": "fk",
+      "from": {
+        "table": "public.invoice",
+        "columns": [
+          "std_id"
+        ]
+      },
+      "to": {
+        "table": "public.std_mst",
+        "columns": [
+          "std_id"
+        ]
+      }
+    },
+    {
+      "kind": "fk",
+      "from": {
+        "table": "public.invoice",
+        "columns": [
+          "term_id"
+        ]
+      },
+      "to": {
+        "table": "public.term_mst",
+        "columns": [
+          "term_id"
+        ]
+      }
+    },
+    {
+      "kind": "fk",
+      "from": {
+        "table": "public.std_mst",
+        "columns": [
+          "dept_cd"
+        ]
+      },
+      "to": {
+        "table": "public.dept_mst",
+        "columns": [
+          "dept_cd"
+        ]
+      }
+    },
+    {
+      "kind": "fk",
+      "from": {
+        "table": "public.submission",
+        "columns": [
+          "asg_id"
+        ]
+      },
+      "to": {
+        "table": "public.assignment",
+        "columns": [
+          "asg_id"
+        ]
+      }
+    },
+    {
+      "kind": "fk",
+      "from": {
+        "table": "public.submission",
+        "columns": [
+          "std_id"
+        ]
+      },
+      "to": {
+        "table": "public.std_mst",
+        "columns": [
+          "std_id"
+        ]
+      }
+    },
+    {
+      "kind": "implicit",
+      "from": {
+        "table": "public.payment",
+        "columns": [
+          "ref_code"
+        ]
+      },
+      "to": {
+        "table": "public.invoice",
+        "columns": [
+          "code"
+        ]
+      }
+    }
+  ],
+  "degraded": [],
+  "repaired_checks": [],
+  "semantic": {}
+}

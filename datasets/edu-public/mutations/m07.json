@@ -1,0 +1,22 @@
+{
+  "id": "m07",
+  "title": "A new categorical value appears in the data",
+  "sql": [
+    "ALTER TABLE attendance DROP CONSTRAINT chk_att_sts",
+    "ALTER TABLE attendance ADD CONSTRAINT chk_att_sts CHECK (att_sts IN ('present', 'absent', 'late', 'excused'))",
+    "UPDATE attendance SET att_sts = 'excused' WHERE att_id % 10 = 0"
+  ],
+  "expect": [
+    {
+      "kind": "sample_value",
+      "column": "public.attendance.att_sts",
+      "value": "excused"
+    }
+  ],
+  "probes": [
+    "m01",
+    "m02",
+    "j07",
+    "x08"
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "id": "m08",
+  "title": "Create a new table (positive control)",
+  "sql": [
+    "CREATE TABLE scholarship (sch_id integer PRIMARY KEY, std_id integer NOT NULL REFERENCES std_mst (std_id), amount numeric(10, 2) NOT NULL)",
+    "INSERT INTO scholarship SELECT row_number() OVER (), std_id, 500 FROM std_mst WHERE std_id % 10 = 0"
+  ],
+  "expect": [
+    {
+      "kind": "column_present",
+      "column": "public.scholarship.amount"
+    },
+    {
+      "kind": "term_for_table",
+      "table": "public.scholarship"
+    },
+    {
+      "kind": "physical_fk",
+      "columns": [
+        "public.scholarship.std_id",
+        "public.std_mst.std_id"
+      ]
+    }
+  ],
+  "probes": [
+    "x01",
+    "x02",
+    "x04",
+    "d05"
+  ]
+}

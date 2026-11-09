@@ -1,0 +1,14 @@
+{
+  "id": "m01",
+  "title": "Rename a column that has a foreign key",
+  "sql": ["ALTER TABLE enrollment RENAME COLUMN std_id TO student_id"],
+  "notes": "No attribute assertions: upstream gives enrollment.std_id no attribute even at T0 (9 of 27 FK columns have one), so their absence after the rename says nothing.",
+  "expect": [
+    {"kind": "column_present", "column": "public.enrollment.student_id"},
+    {"kind": "column_absent", "column": "public.enrollment.std_id"},
+    {"kind": "physical_fk", "columns": ["public.enrollment.student_id", "public.std_mst.std_id"]}
+  ],
+  "gold_overrides": {
+    "x04": "SELECT count(*) FROM enrollment e JOIN std_mst s ON s.std_id = e.student_id WHERE s.rec_sts = 'active'"
+  }
+}

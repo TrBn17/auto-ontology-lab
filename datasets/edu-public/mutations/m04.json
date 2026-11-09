@@ -1,0 +1,20 @@
+{
+  "id": "m04",
+  "title": "Change a column's data type",
+  "sql": [
+    "ALTER TABLE cls_mst ALTER COLUMN capacity TYPE bigint"
+  ],
+  "expect": [
+    {
+      "kind": "column_type",
+      "column": "public.cls_mst.capacity",
+      "type": "bigint"
+    }
+  ],
+  "probes": [
+    "s10",
+    "m07",
+    "s04",
+    "j01"
+  ]
+}

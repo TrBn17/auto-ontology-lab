@@ -1,0 +1,22 @@
+{
+  "id": "m06",
+  "title": "Promote an implicit relationship to a physical foreign key",
+  "sql": [
+    "ALTER TABLE payment ADD CONSTRAINT fk_payment_invoice FOREIGN KEY (ref_code) REFERENCES invoice (code)"
+  ],
+  "expect": [
+    {
+      "kind": "physical_fk",
+      "columns": [
+        "public.payment.ref_code",
+        "public.invoice.code"
+      ]
+    }
+  ],
+  "probes": [
+    "n01",
+    "n02",
+    "n03",
+    "n07"
+  ]
+}

@@ -1,0 +1,1621 @@
+{
+  "source": {
+    "dialect": "postgresql",
+    "server_version": "17.11 (Debian 17.11-1.pgdg12+2)",
+    "profiled_at": "2026-11-07T07:58:32.275278+00:00",
+    "scale_note": "TABLESAMPLE 1% on tables > 1M rows"
+  },
+  "excluded_tables": [],
+  "enums": {},
+  "tables": {
+    "public.assignment": {
+      "row_count": 1200,
+      "pk": [
+        "asg_id"
+      ],
+      "unique": [],
+      "checks": [],
+      "has_rls": false,
+      "columns": {
+        "asg_id": {
+          "type": "integer",
+          "udt_type": "pg_catalog.int4",
+          "nullable": false,
+          "null_rate": 0.0,
+          "is_identity": false,
+          "distinct": 1200,
+          "min": 1,
+          "max": 1200
+        },
+        "cls_id": {
+          "type": "integer",
+          "udt_type": "pg_catalog.int4",
+          "nullable": false,
+          "null_rate": 0.0,
+          "is_identity": false,
+          "distinct": 524,
+          "min": 1,
+          "max": 600
+        },
+        "title": {
+          "type": "text",
+          "udt_type": "pg_catalog.text",
+          "nullable": false,
+          "null_rate": 0.0,
+          "is_identity": false,
+          "distinct": 1200,
+          "len": {
+            "min": 12,
+            "max": 15,
+            "avg": 14.08
+          }
+        },
+        "due_dt": {
+          "type": "date",
+          "udt_type": "pg_catalog.date",
+          "nullable": false,
+          "null_rate": 0.0,
+          "is_identity": false,
+          "distinct": 781,
+          "min": "2023-02-02",
+          "max": "2026-08-24"
+        },
+        "max_pts": {
+          "type": "integer",
+          "udt_type": "pg_catalog.int4",
+          "nullable": false,
+          "null_rate": 0.0,
+          "is_identity": false,
+          "distinct": 10,
+          "min": 10,
+          "max": 100
+        }
+      }
+    },
+    "public.attendance": {
+      "row_count": 12000,
+      "pk": [
+        "att_id"
+      ],
+      "unique": [],
+      "checks": [
+        {
+          "name": "chk_att_sts",
+          "expr": "CHECK (att_sts = ANY (ARRAY['present'::text, 'absent'::text, 'late'::text]))"
+        }
+      ],
+      "has_rls": false,
+      "columns": {
+        "att_id": {
+          "type": "integer",
+          "udt_type": "pg_catalog.int4",
+          "nullable": false,
+          "null_rate": 0.0,
+          "is_identity": false,
+          "distinct": 12000,
+          "min": 1,
+          "max": 12000
+        },
+        "sess_id": {
+          "type": "integer",
+          "udt_type": "pg_catalog.int4",
+          "nullable": false,
+          "null_rate": 0.0,
+          "is_identity": false,
+          "distinct": 2948,
+          "min": 1,
+          "max": 2999
+        },
+        "std_id": {
+          "type": "integer",
+          "udt_type": "pg_catalog.int4",
+          "nullable": false,
+          "null_rate": 0.0,
+          "is_identity": false,
+          "distinct": 1998,
+          "min": 1,
+          "max": 2000
+        },
+        "att_sts": {
+          "type": "text",
+          "udt_type": "pg_catalog.text",
+          "nullable": false,
+          "null_rate": 0.0,
+          "is_identity": false,
+          "distinct": 3,
+          "len": {
+            "min": 4,
+            "max": 7,
+            "avg": 6.61
+          },
+          "allowed_values": [
+            "present",
+            "absent",
+            "late"
+          ],
+          "value_source": "allowlist",
+          "categorical": {
+            "absent": 0.129333,
+            "late": 0.088083,
+            "present": 0.782583
+          }
+        }
+      }
+    },
+    "public.cls_instr": {
+      "row_count": 699,
+      "pk": [
+        "cls_id",
+        "instr_id"
+      ],
+      "unique": [],
+      "checks": [],
+      "has_rls": false,
+      "columns": {
+        "cls_id": {
+          "type": "integer",
+          "udt_type": "pg_catalog.int4",
+          "nullable": false,
+          "null_rate": 0.0,
+          "is_identity": false,
+          "distinct": 600,
+          "min": 1,
+          "max": 600
+        },
+        "instr_id": {
+          "type": "integer",
+          "udt_type": "pg_catalog.int4",
+          "nullable": false,
+          "null_rate": 0.0,
+          "is_identity": false,
+          "distinct": 119,
+          "min": 1,
+          "max": 120
+        }
+      }
+    },
+    "public.cls_mst": {
+      "row_count": 600,
+      "pk": [
+        "cls_id"
+      ],
+      "unique": [],
+      "checks": [
+        {
+          "name": "chk_cls_sts",
+          "expr": "CHECK (cls_sts = ANY (ARRAY['open'::text, 'closed'::text, 'cancelled'::text]))"
+        }
+      ],
+      "has_rls": false,
+      "columns": {
+        "cls_id": {
+          "type": "integer",
+          "udt_type": "pg_catalog.int4",
+          "nullable": false,
+          "null_rate": 0.0,
+          "is_identity": false,
+          "distinct": 600,
+          "min": 1,
+          "max": 600
+        },
+        "crs_id": {
+          "type": "integer",
+          "udt_type": "pg_catalog.int4",
+          "nullable": false,
+          "null_rate": 0.0,
+          "is_identity": false,
+          "distinct": 149,
+          "min": 1,
+          "max": 150
+        },
+        "term_id": {
+          "type": "integer",
+          "udt_type": "pg_catalog.int4",
+          "nullable": false,
+          "null_rate": 0.0,
+          "is_identity": false,
+          "distinct": 8,
+          "min": 1,
+          "max": 8
+        },
+        "start_date": {
+          "type": "date",
+          "udt_type": "pg_catalog.date",
+          "nullable": false,
+          "null_rate": 0.0,
+          "is_identity": false,
+          "distinct": 483,
+          "min": "2023-01-16",
+          "max": "2026-08-07"
+        },
+        "capacity": {
+          "type": "integer",
+          "udt_type": "pg_catalog.int4",
+          "nullable": false,
+          "null_rate": 0.0,
+          "is_identity": false,
+          "distinct": 46,
+          "min": 15,
+          "max": 60
+        },
+        "cls_sts": {
+          "type": "text",
+          "udt_type": "pg_catalog.text",
+          "nullable": false,
+          "null_rate": 0.0,
+          "is_identity": false,
+          "distinct": 3,
+          "len": {
+            "min": 4,
+            "max": 9,
+            "avg": 5.66
+          },
+          "allowed_values": [
+            "open",
+            "closed",
+            "cancelled"
+          ],
+          "value_source": "allowlist",
+          "categorical": {
+            "cancelled": 0.161667,
+            "closed": 0.425,
+            "open": 0.413333
+          }
+        }
+      }
+    },
+    "public.cls_sess": {
+      "row_count": 3000,
+      "pk": [
+        "sess_id"
+      ],
+      "unique": [],
+      "checks": [
+        {
+          "name": "chk_sess_sts",
+          "expr": "CHECK (sess_sts = ANY (ARRAY['held'::text, 'cancelled'::text]))"
+        }
+      ],
+      "has_rls": false,
+      "columns": {
+        "sess_id": {
+          "type": "integer",
+          "udt_type": "pg_catalog.int4",
+          "nullable": false,
+          "null_rate": 0.0,
+          "is_identity": false,
+          "distinct": 3000,
+          "min": 1,
+          "max": 3000
+        },
+        "cls_id": {
+          "type": "integer",
+          "udt_type": "pg_catalog.int4",
+          "nullable": false,
+          "null_rate": 0.0,
+          "is_identity": false,
+          "distinct": 593,
+          "min": 2,
+          "max": 600
+        },
+        "sess_dt": {
+          "type": "date",
+          "udt_type": "pg_catalog.date",
+          "nullable": false,
+          "null_rate": 0.0,
+          "is_identity": false,
+          "distinct": 1174,
+          "min": "2023-01-15",
+          "max": "2026-08-07"
+        },
+        "sess_sts": {
+          "type": "text",
+          "udt_type": "pg_catalog.text",
+          "nullable": false,
+          "null_rate": 0.0,
+          "is_identity": false,
+          "distinct": 2,
+          "len": {
+            "min": 4,
+            "max": 9,
+            "avg": 4.86
+          },
+          "allowed_values": [
+            "held",
+            "cancelled"
+          ],
+          "value_source": "allowlist",
+          "categorical": {
+            "cancelled": 0.172667,
+            "held": 0.827333
+          }
+        }
+      }
+    },
+    "public.crs_mst": {
+      "row_count": 150,
+      "pk": [
+        "crs_id"
+      ],
+      "unique": [
+        {
+          "name": "crs_mst_crs_code_key",
+          "columns": [
+            "crs_code"
+          ],
+          "predicate": null,
+          "indexdef": "CREATE UNIQUE INDEX crs_mst_crs_code_key ON public.crs_mst USING btree (crs_code)"
+        }
+      ],
+      "checks": [
+        {
+          "name": "chk_crs_credits",
+          "expr": "CHECK (credits >= 1 AND credits <= 6)"
+        }
+      ],
+      "has_rls": false,
+      "columns": {
+        "crs_id": {
+          "type": "integer",
+          "udt_type": "pg_catalog.int4",
+          "nullable": false,
+          "null_rate": 0.0,
+          "is_identity": false,
+          "distinct": 150,
+          "min": 1,
+          "max": 150
+        },
+        "crs_code": {
+          "type": "text",
+          "udt_type": "pg_catalog.text",
+          "nullable": false,
+          "null_rate": 0.0,
+          "is_identity": false,
+          "distinct": 150,
+          "len": {
+            "min": 7,
+            "max": 7,
+            "avg": 7.0
+          }
+        },
+        "title": {
+          "type": "text",
+          "udt_type": "pg_catalog.text",
+          "nullable": false,
+          "null_rate": 0.0,
+          "is_identity": false,
+          "distinct": 150,
+          "len": {
+            "min": 8,
+            "max": 10,
+            "avg": 9.28
+          }
+        },
+        "dept_cd": {
+          "type": "text",
+          "udt_type": "pg_catalog.text",
+          "nullable": false,
+          "null_rate": 0.0,
+          "is_identity": false,
+          "distinct": 8,
+          "len": {
+            "min": 3,
+            "max": 3,
+            "avg": 3.0
+          }
+        },
+        "credits": {
+          "type": "integer",
+          "udt_type": "pg_catalog.int4",
+          "nullable": false,
+          "null_rate": 0.0,
+          "is_identity": false,
+          "distinct": 6,
+          "min": 1,
+          "max": 6
+        },
+        "legacy_code": {
+          "type": "text",
+          "udt_type": "pg_catalog.text",
+          "nullable": true,
+          "null_rate": 0.0,
+          "is_identity": false,
+          "distinct": 150,
+          "len": {
+            "min": 5,
+            "max": 7,
+            "avg": 6.28
+          }
+        }
+      }
+    },
+    "public.dept_mst": {
+      "row_count": 8,
+      "pk": [
+        "dept_cd"
+      ],
+      "unique": [],
+      "checks": [],
+      "has_rls": false,
+      "columns": {
+        "dept_cd": {
+          "type": "text",
+          "udt_type": "pg_catalog.text",
+          "nullable": false,
+          "null_rate": 0.0,
+          "is_identity": false,
+          "distinct": 8,
+          "len": {
+            "min": 3,
+            "max": 3,
+            "avg": 3.0
+          },
+          "categorical": {
+            "D01": 0.125,
+            "D02": 0.125,
+            "D03": 0.125,
+            "D04": 0.125,
+            "D05": 0.125,
+            "D06": 0.125,
+            "D07": 0.125,
+            "D08": 0.125
+          },
+          "value_source": "allowlist"
+        },
+        "dept_nm": {
+          "type": "text",
+          "udt_type": "pg_catalog.text",
+          "nullable": false,
+          "null_rate": 0.0,
+          "is_identity": false,
+          "distinct": 8,
+          "len": {
+            "min": 12,
+            "max": 12,
+            "avg": 12.0
+          },
+          "categorical": {
+            "Department 1": 0.125,
+            "Department 2": 0.125,
+            "Department 3": 0.125,
+            "Department 4": 0.125,
+            "Department 5": 0.125,
+            "Department 6": 0.125,
+            "Department 7": 0.125,
+            "Department 8": 0.125
+          },
+          "value_source": "allowlist"
+        }
+      }
+    },
+    "public.enrollment": {
+      "row_count": 6000,
+      "pk": [
+        "enr_id"
+      ],
+      "unique": [],
+      "checks": [
+        {
+          "name": "chk_enr_sts",
+          "expr": "CHECK (enr_sts = ANY (ARRAY['enrolled'::text, 'dropped'::text, 'completed'::text]))"
+        }
+      ],
+      "has_rls": false,
+      "columns": {
+        "enr_id": {
+          "type": "integer",
+          "udt_type": "pg_catalog.int4",
+          "nullable": false,
+          "null_rate": 0.0,
+          "is_identity": false,
+          "distinct": 6000,
+          "min": 1,
+          "max": 6000
+        },
+        "std_id": {
+          "type": "integer",
+          "udt_type": "pg_catalog.int4",
+          "nullable": false,
+          "null_rate": 0.0,
+          "is_identity": false,
+          "distinct": 1907,
+          "min": 2,
+          "max": 2000
+        },
+        "cls_id": {
+          "type": "integer",
+          "udt_type": "pg_catalog.int4",
+          "nullable": false,
+          "null_rate": 0.0,
+          "is_identity": false,
+          "distinct": 600,
+          "min": 1,
+          "max": 600
+        },
+        "enrolled_at": {
+          "type": "date",
+          "udt_type": "pg_catalog.date",
+          "nullable": false,
+          "null_rate": 0.0,
+          "is_identity": false,
+          "distinct": 1285,
+          "min": "2023-01-01",
+          "max": "2026-07-24"
+        },
+        "created_at": {
+          "type": "date",
+          "udt_type": "pg_catalog.date",
+          "nullable": false,
+          "null_rate": 0.0,
+          "is_identity": false,
+          "distinct": 1290,
+          "min": "2023-01-01",
+          "max": "2026-07-24"
+        },
+        "enr_sts": {
+          "type": "text",
+          "udt_type": "pg_catalog.text",
+          "nullable": false,
+          "null_rate": 0.0,
+          "is_identity": false,
+          "distinct": 3,
+          "len": {
+            "min": 7,
+            "max": 9,
+            "avg": 8.4
+          },
+          "allowed_values": [
+            "enrolled",
+            "dropped",
+            "completed"
+          ],
+          "value_source": "allowlist",
+          "categorical": {
+            "completed": 0.529833,
+            "dropped": 0.1255,
+            "enrolled": 0.344667
+          }
+        }
+      }
+    },
+    "public.grade": {
+      "row_count": 4000,
+      "pk": [
+        "enr_id"
+      ],
+      "unique": [],
+      "checks": [
+        {
+          "name": "chk_grade_letter",
+          "expr": "CHECK (letter = ANY (ARRAY['A'::text, 'B'::text, 'C'::text, 'D'::text, 'F'::text]))"
+        }
+      ],
+      "has_rls": false,
+      "columns": {
+        "enr_id": {
+          "type": "integer",
+          "udt_type": "pg_catalog.int4",
+          "nullable": false,
+          "null_rate": 0.0,
+          "is_identity": false,
+          "distinct": 4000,
+          "min": 1,
+          "max": 4000
+        },
+        "final_score": {
+          "type": "numeric(5,2)",
+          "udt_type": "pg_catalog.numeric",
+          "nullable": false,
+          "null_rate": 0.0,
+          "is_identity": false,
+          "distinct": 2935,
+          "min": 40.0,
+          "max": 99.98
+        },
+        "letter": {
+          "type": "text",
+          "udt_type": "pg_catalog.text",
+          "nullable": false,
+          "null_rate": 0.0,
+          "is_identity": false,
+          "distinct": 5,
+          "len": {
+            "min": 1,
+            "max": 1,
+            "avg": 1.0
+          },
+          "allowed_values": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "F"
+          ],
+          "value_source": "allowlist",
+          "categorical": {
+            "A": 0.12825,
+            "B": 0.24325,
+            "C": 0.255,
+            "D": 0.2435,
+            "F": 0.13
+          }
+        }
+      }
+    },
+    "public.instr_mst": {
+      "row_count": 120,
+      "pk": [
+        "instr_id"
+      ],
+      "unique": [],
+      "checks": [],
+      "has_rls": false,
+      "columns": {
+        "instr_id": {
+          "type": "integer",
+          "udt_type": "pg_catalog.int4",
+          "nullable": false,
+          "null_rate": 0.0,
+          "is_identity": false,
+          "distinct": 120,
+          "min": 1,
+          "max": 120
+        },
+        "full_nm": {
+          "type": "text",
+          "udt_type": "pg_catalog.text",
+          "nullable": false,
+          "null_rate": 0.0,
+          "is_identity": false,
+          "distinct": 120,
+          "len": {
+            "min": 12,
+            "max": 14,
+            "avg": 13.1
+          }
+        },
+        "email": {
+          "type": "text",
+          "udt_type": "pg_catalog.text",
+          "nullable": false,
+          "null_rate": 0.0,
+          "is_identity": false,
+          "pii": "email",
+          "pii_matched_pattern": "email",
+          "distinct": 120,
+          "len": {
+            "min": 24,
+            "max": 26,
+            "avg": 25.1
+          }
+        },
+        "dept_cd": {
+          "type": "text",
+          "udt_type": "pg_catalog.text",
+          "nullable": false,
+          "null_rate": 0.0,
+          "is_identity": false,
+          "distinct": 8,
+          "len": {
+            "min": 3,
+            "max": 3,
+            "avg": 3.0
+          }
+        },
+        "hire_dt": {
+          "type": "date",
+          "udt_type": "pg_catalog.date",
+          "nullable": false,
+          "null_rate": 0.0,
+          "is_identity": false,
+          "distinct": 116,
+          "min": "2015-04-13",
+          "max": "2023-03-20"
+        }
+      }
+    },
+    "public.invoice": {
+      "row_count": 3000,
+      "pk": [
+        "inv_id"
+      ],
+      "unique": [
+        {
+          "name": "invoice_code_key",
+          "columns": [
+            "code"
+          ],
+          "predicate": null,
+          "indexdef": "CREATE UNIQUE INDEX invoice_code_key ON public.invoice USING btree (code)"
+        }
+      ],
+      "checks": [
+        {
+          "name": "chk_inv_sts",
+          "expr": "CHECK (inv_sts = ANY (ARRAY['paid'::text, 'unpaid'::text, 'void'::text]))"
+        }
+      ],
+      "has_rls": false,
+      "columns": {
+        "inv_id": {
+          "type": "integer",
+          "udt_type": "pg_catalog.int4",
+          "nullable": false,
+          "null_rate": 0.0,
+          "is_identity": false,
+          "distinct": 3000,
+          "min": 1,
+          "max": 3000
+        },
+        "code": {
+          "type": "text",
+          "udt_type": "pg_catalog.text",
+          "nullable": false,
+          "null_rate": 0.0,
+          "is_identity": false,
+          "distinct": 3000,
+          "len": {
+            "min": 10,
+            "max": 10,
+            "avg": 10.0
+          }
+        },
+        "std_id": {
+          "type": "integer",
+          "udt_type": "pg_catalog.int4",
+          "nullable": false,
+          "null_rate": 0.0,
+          "is_identity": false,
+          "distinct": 1560,
+          "min": 2,
+          "max": 2000
+        },
+        "term_id": {
+          "type": "integer",
+          "udt_type": "pg_catalog.int4",
+          "nullable": false,
+          "null_rate": 0.0,
+          "is_identity": false,
+          "distinct": 8,
+          "min": 1,
+          "max": 8
+        },
+        "amount": {
+          "type": "numeric(10,2)",
+          "udt_type": "pg_catalog.numeric",
+          "nullable": false,
+          "null_rate": 0.0,
+          "is_identity": false,
+          "distinct": 2991,
+          "min": 200.71,
+          "max": 3199.65
+        },
+        "issued_dt": {
+          "type": "date",
+          "udt_type": "pg_catalog.date",
+          "nullable": false,
+          "null_rate": 0.0,
+          "is_identity": false,
+          "distinct": 1178,
+          "min": "2023-01-01",
+          "max": "2026-07-24"
+        },
+        "inv_sts": {
+          "type": "text",
+          "udt_type": "pg_catalog.text",
+          "nullable": false,
+          "null_rate": 0.0,
+          "is_identity": false,
+          "distinct": 3,
+          "len": {
+            "min": 4,
+            "max": 6,
+            "avg": 4.6
+          },
+          "allowed_values": [
+            "paid",
+            "unpaid",
+            "void"
+          ],
+          "value_source": "allowlist",
+          "categorical": {
+            "paid": 0.650333,
+            "unpaid": 0.300667,
+            "void": 0.049
+          }
+        }
+      }
+    },
+    "public.payment": {
+      "row_count": 2500,
+      "pk": [
+        "pay_id"
+      ],
+      "unique": [],
+      "checks": [
+        {
+          "name": "chk_pay_method",
+          "expr": "CHECK (method = ANY (ARRAY['card'::text, 'transfer'::text, 'cash'::text]))"
+        }
+      ],
+      "has_rls": false,
+      "columns": {
+        "pay_id": {
+          "type": "integer",
+          "udt_type": "pg_catalog.int4",
+          "nullable": false,
+          "null_rate": 0.0,
+          "is_identity": false,
+          "distinct": 2500,
+          "min": 1,
+          "max": 2500
+        },
+        "ref_code": {
+          "type": "text",
+          "udt_type": "pg_catalog.text",
+          "nullable": false,
+          "null_rate": 0.0,
+          "is_identity": false,
+          "distinct": 1700,
+          "len": {
+            "min": 10,
+            "max": 10,
+            "avg": 10.0
+          }
+        },
+        "amount": {
+          "type": "numeric(10,2)",
+          "udt_type": "pg_catalog.numeric",
+          "nullable": false,
+          "null_rate": 0.0,
+          "is_identity": false,
+          "distinct": 2484,
+          "min": 50.41,
+          "max": 2049.51
+        },
+        "paid_dt": {
+          "type": "date",
+          "udt_type": "pg_catalog.date",
+          "nullable": false,
+          "null_rate": 0.0,
+          "is_identity": false,
+          "distinct": 1112,
+          "min": "2023-01-01",
+          "max": "2026-07-24"
+        },
+        "method": {
+          "type": "text",
+          "udt_type": "pg_catalog.text",
+          "nullable": false,
+          "null_rate": 0.0,
+          "is_identity": false,
+          "distinct": 3,
+          "len": {
+            "min": 4,
+            "max": 8,
+            "avg": 5.29
+          },
+          "allowed_values": [
+            "card",
+            "transfer",
+            "cash"
+          ],
+          "value_source": "allowlist",
+          "categorical": {
+            "card": 0.6028,
+            "cash": 0.0756,
+            "transfer": 0.3216
+          }
+        }
+      }
+    },
+    "public.std_mst": {
+      "row_count": 2000,
+      "pk": [
+        "std_id"
+      ],
+      "unique": [],
+      "checks": [
+        {
+          "name": "chk_std_rec_sts",
+          "expr": "CHECK (rec_sts = ANY (ARRAY['active'::text, 'deleted'::text]))"
+        }
+      ],
+      "has_rls": false,
+      "columns": {
+        "std_id": {
+          "type": "integer",
+          "udt_type": "pg_catalog.int4",
+          "nullable": false,
+          "null_rate": 0.0,
+          "is_identity": false,
+          "distinct": 2000,
+          "min": 1,
+          "max": 2000
+        },
+        "full_nm": {
+          "type": "text",
+          "udt_type": "pg_catalog.text",
+          "nullable": false,
+          "null_rate": 0.0,
+          "is_identity": false,
+          "distinct": 2000,
+          "len": {
+            "min": 9,
+            "max": 12,
+            "avg": 11.45
+          }
+        },
+        "email": {
+          "type": "text",
+          "udt_type": "pg_catalog.text",
+          "nullable": false,
+          "null_rate": 0.0,
+          "is_identity": false,
+          "pii": "email",
+          "pii_matched_pattern": "email",
+          "distinct": 2000,
+          "len": {
+            "min": 21,
+            "max": 24,
+            "avg": 23.45
+          }
+        },
+        "phone": {
+          "type": "text",
+          "udt_type": "pg_catalog.text",
+          "nullable": true,
+          "null_rate": 0.0,
+          "is_identity": false,
+          "pii": "phone",
+          "pii_matched_pattern": "phone",
+          "distinct": 2000,
+          "len": {
+            "min": 11,
+            "max": 11,
+            "avg": 11.0
+          }
+        },
+        "dept_cd": {
+          "type": "text",
+          "udt_type": "pg_catalog.text",
+          "nullable": false,
+          "null_rate": 0.0,
+          "is_identity": false,
+          "distinct": 8,
+          "len": {
+            "min": 3,
+            "max": 3,
+            "avg": 3.0
+          }
+        },
+        "rec_sts": {
+          "type": "text",
+          "udt_type": "pg_catalog.text",
+          "nullable": false,
+          "null_rate": 0.0,
+          "is_identity": false,
+          "distinct": 2,
+          "len": {
+            "min": 6,
+            "max": 7,
+            "avg": 6.08
+          },
+          "allowed_values": [
+            "active",
+            "deleted"
+          ],
+          "value_source": "allowlist",
+          "categorical": {
+            "active": 0.916,
+            "deleted": 0.084
+          }
+        },
+        "created_at": {
+          "type": "date",
+          "udt_type": "pg_catalog.date",
+          "nullable": false,
+          "null_rate": 0.0,
+          "is_identity": false,
+          "distinct": 857,
+          "min": "2023-01-01",
+          "max": "2025-09-27"
+        }
+      }
+    },
+    "public.submission": {
+      "row_count": 6000,
+      "pk": [
+        "sub_id"
+      ],
+      "unique": [],
+      "checks": [],
+      "has_rls": false,
+      "columns": {
+        "sub_id": {
+          "type": "integer",
+          "udt_type": "pg_catalog.int4",
+          "nullable": false,
+          "null_rate": 0.0,
+          "is_identity": false,
+          "distinct": 6000,
+          "min": 1,
+          "max": 6000
+        },
+        "asg_id": {
+          "type": "integer",
+          "udt_type": "pg_catalog.int4",
+          "nullable": false,
+          "null_rate": 0.0,
+          "is_identity": false,
+          "distinct": 1192,
+          "min": 1,
+          "max": 1200
+        },
+        "std_id": {
+          "type": "integer",
+          "udt_type": "pg_catalog.int4",
+          "nullable": false,
+          "null_rate": 0.0,
+          "is_identity": false,
+          "distinct": 1915,
+          "min": 2,
+          "max": 2000
+        },
+        "submitted_at": {
+          "type": "date",
+          "udt_type": "pg_catalog.date",
+          "nullable": false,
+          "null_rate": 0.0,
+          "is_identity": false,
+          "distinct": 1291,
+          "min": "2023-02-01",
+          "max": "2026-08-24"
+        },
+        "score": {
+          "type": "numeric(6,2)",
+          "udt_type": "pg_catalog.numeric",
+          "nullable": false,
+          "null_rate": 0.0,
+          "is_identity": false,
+          "distinct": 4536,
+          "min": 0.04,
+          "max": 100.0
+        }
+      }
+    },
+    "public.term_mst": {
+      "row_count": 8,
+      "pk": [
+        "term_id"
+      ],
+      "unique": [
+        {
+          "name": "term_mst_term_cd_key",
+          "columns": [
+            "term_cd"
+          ],
+          "predicate": null,
+          "indexdef": "CREATE UNIQUE INDEX term_mst_term_cd_key ON public.term_mst USING btree (term_cd)"
+        }
+      ],
+      "checks": [
+        {
+          "name": "chk_term_dates",
+          "expr": "CHECK (end_dt >= start_dt)"
+        }
+      ],
+      "has_rls": false,
+      "columns": {
+        "term_id": {
+          "type": "integer",
+          "udt_type": "pg_catalog.int4",
+          "nullable": false,
+          "null_rate": 0.0,
+          "is_identity": false,
+          "distinct": 8,
+          "min": 1,
+          "max": 8
+        },
+        "term_cd": {
+          "type": "text",
+          "udt_type": "pg_catalog.text",
+          "nullable": false,
+          "null_rate": 0.0,
+          "is_identity": false,
+          "distinct": 8,
+          "len": {
+            "min": 6,
+            "max": 6,
+            "avg": 6.0
+          },
+          "categorical": {
+            "T2023F": 0.125,
+            "T2023S": 0.125,
+            "T2024F": 0.125,
+            "T2024S": 0.125,
+            "T2025F": 0.125,
+            "T2025S": 0.125,
+            "T2026F": 0.125,
+            "T2026S": 0.125
+          },
+          "value_source": "allowlist"
+        },
+        "start_dt": {
+          "type": "date",
+          "udt_type": "pg_catalog.date",
+          "nullable": false,
+          "null_rate": 0.0,
+          "is_identity": false,
+          "distinct": 8,
+          "min": "2023-01-15",
+          "max": "2026-07-12"
+        },
+        "end_dt": {
+          "type": "date",
+          "udt_type": "pg_catalog.date",
+          "nullable": false,
+          "null_rate": 0.0,
+          "is_identity": false,
+          "distinct": 8,
+          "min": "2023-05-15",
+          "max": "2026-11-09"
+        }
+      }
+    }
+  },
+  "foreign_keys": [
+    {
+      "name": "assignment_cls_id_fkey",
+      "kind": "fk",
+      "from": {
+        "table": "public.assignment",
+        "columns": [
+          "cls_id"
+        ]
+      },
+      "to": {
+        "table": "public.cls_mst",
+        "columns": [
+          "cls_id"
+        ]
+      },
+      "nullable": false,
+      "null_rate": 0.0,
+      "children_per_parent": {
+        "avg": 2.0,
+        "max": 10
+      },
+      "coverage": 0.873333
+    },
+    {
+      "name": "attendance_sess_id_fkey",
+      "kind": "fk",
+      "from": {
+        "table": "public.attendance",
+        "columns": [
+          "sess_id"
+        ]
+      },
+      "to": {
+        "table": "public.cls_sess",
+        "columns": [
+          "sess_id"
+        ]
+      },
+      "nullable": false,
+      "null_rate": 0.0,
+      "children_per_parent": {
+        "avg": 4.0,
+        "max": 13
+      },
+      "coverage": 0.982667
+    },
+    {
+      "name": "attendance_std_id_fkey",
+      "kind": "fk",
+      "from": {
+        "table": "public.attendance",
+        "columns": [
+          "std_id"
+        ]
+      },
+      "to": {
+        "table": "public.std_mst",
+        "columns": [
+          "std_id"
+        ]
+      },
+      "nullable": false,
+      "null_rate": 0.0,
+      "children_per_parent": {
+        "avg": 6.0,
+        "max": 14
+      },
+      "coverage": 0.999
+    },
+    {
+      "name": "cls_instr_cls_id_fkey",
+      "kind": "fk",
+      "from": {
+        "table": "public.cls_instr",
+        "columns": [
+          "cls_id"
+        ]
+      },
+      "to": {
+        "table": "public.cls_mst",
+        "columns": [
+          "cls_id"
+        ]
+      },
+      "nullable": false,
+      "null_rate": 0.0,
+      "children_per_parent": {
+        "avg": 1.165,
+        "max": 2
+      },
+      "coverage": 1.0
+    },
+    {
+      "name": "cls_instr_instr_id_fkey",
+      "kind": "fk",
+      "from": {
+        "table": "public.cls_instr",
+        "columns": [
+          "instr_id"
+        ]
+      },
+      "to": {
+        "table": "public.instr_mst",
+        "columns": [
+          "instr_id"
+        ]
+      },
+      "nullable": false,
+      "null_rate": 0.0,
+      "children_per_parent": {
+        "avg": 5.825,
+        "max": 13
+      },
+      "coverage": 0.991667
+    },
+    {
+      "name": "cls_mst_crs_id_fkey",
+      "kind": "fk",
+      "from": {
+        "table": "public.cls_mst",
+        "columns": [
+          "crs_id"
+        ]
+      },
+      "to": {
+        "table": "public.crs_mst",
+        "columns": [
+          "crs_id"
+        ]
+      },
+      "nullable": false,
+      "null_rate": 0.0,
+      "children_per_parent": {
+        "avg": 4.0,
+        "max": 10
+      },
+      "coverage": 0.993333
+    },
+    {
+      "name": "cls_mst_term_id_fkey",
+      "kind": "fk",
+      "from": {
+        "table": "public.cls_mst",
+        "columns": [
+          "term_id"
+        ]
+      },
+      "to": {
+        "table": "public.term_mst",
+        "columns": [
+          "term_id"
+        ]
+      },
+      "nullable": false,
+      "null_rate": 0.0,
+      "children_per_parent": {
+        "avg": 75.0,
+        "max": 105
+      },
+      "coverage": 1.0
+    },
+    {
+      "name": "cls_sess_cls_id_fkey",
+      "kind": "fk",
+      "from": {
+        "table": "public.cls_sess",
+        "columns": [
+          "cls_id"
+        ]
+      },
+      "to": {
+        "table": "public.cls_mst",
+        "columns": [
+          "cls_id"
+        ]
+      },
+      "nullable": false,
+      "null_rate": 0.0,
+      "children_per_parent": {
+        "avg": 5.0,
+        "max": 14
+      },
+      "coverage": 0.988333
+    },
+    {
+      "name": "crs_mst_dept_cd_fkey",
+      "kind": "fk",
+      "from": {
+        "table": "public.crs_mst",
+        "columns": [
+          "dept_cd"
+        ]
+      },
+      "to": {
+        "table": "public.dept_mst",
+        "columns": [
+          "dept_cd"
+        ]
+      },
+      "nullable": false,
+      "null_rate": 0.0,
+      "children_per_parent": {
+        "avg": 18.75,
+        "max": 19
+      },
+      "coverage": 1.0
+    },
+    {
+      "name": "enrollment_cls_id_fkey",
+      "kind": "fk",
+      "from": {
+        "table": "public.enrollment",
+        "columns": [
+          "cls_id"
+        ]
+      },
+      "to": {
+        "table": "public.cls_mst",
+        "columns": [
+          "cls_id"
+        ]
+      },
+      "nullable": false,
+      "null_rate": 0.0,
+      "children_per_parent": {
+        "avg": 10.0,
+        "max": 22
+      },
+      "coverage": 1.0
+    },
+    {
+      "name": "enrollment_std_id_fkey",
+      "kind": "fk",
+      "from": {
+        "table": "public.enrollment",
+        "columns": [
+          "std_id"
+        ]
+      },
+      "to": {
+        "table": "public.std_mst",
+        "columns": [
+          "std_id"
+        ]
+      },
+      "nullable": false,
+      "null_rate": 0.0,
+      "children_per_parent": {
+        "avg": 3.0,
+        "max": 10
+      },
+      "coverage": 0.9535
+    },
+    {
+      "name": "grade_enr_id_fkey",
+      "kind": "fk",
+      "from": {
+        "table": "public.grade",
+        "columns": [
+          "enr_id"
+        ]
+      },
+      "to": {
+        "table": "public.enrollment",
+        "columns": [
+          "enr_id"
+        ]
+      },
+      "nullable": false,
+      "null_rate": 0.0,
+      "children_per_parent": {
+        "avg": 0.666667,
+        "max": 1
+      },
+      "coverage": 0.666667
+    },
+    {
+      "name": "instr_mst_dept_cd_fkey",
+      "kind": "fk",
+      "from": {
+        "table": "public.instr_mst",
+        "columns": [
+          "dept_cd"
+        ]
+      },
+      "to": {
+        "table": "public.dept_mst",
+        "columns": [
+          "dept_cd"
+        ]
+      },
+      "nullable": false,
+      "null_rate": 0.0,
+      "children_per_parent": {
+        "avg": 15.0,
+        "max": 15
+      },
+      "coverage": 1.0
+    },
+    {
+      "name": "invoice_std_id_fkey",
+      "kind": "fk",
+      "from": {
+        "table": "public.invoice",
+        "columns": [
+          "std_id"
+        ]
+      },
+      "to": {
+        "table": "public.std_mst",
+        "columns": [
+          "std_id"
+        ]
+      },
+      "nullable": false,
+      "null_rate": 0.0,
+      "children_per_parent": {
+        "avg": 1.5,
+        "max": 6
+      },
+      "coverage": 0.78
+    },
+    {
+      "name": "invoice_term_id_fkey",
+      "kind": "fk",
+      "from": {
+        "table": "public.invoice",
+        "columns": [
+          "term_id"
+        ]
+      },
+      "to": {
+        "table": "public.term_mst",
+        "columns": [
+          "term_id"
+        ]
+      },
+      "nullable": false,
+      "null_rate": 0.0,
+      "children_per_parent": {
+        "avg": 375.0,
+        "max": 450
+      },
+      "coverage": 1.0
+    },
+    {
+      "name": "std_mst_dept_cd_fkey",
+      "kind": "fk",
+      "from": {
+        "table": "public.std_mst",
+        "columns": [
+          "dept_cd"
+        ]
+      },
+      "to": {
+        "table": "public.dept_mst",
+        "columns": [
+          "dept_cd"
+        ]
+      },
+      "nullable": false,
+      "null_rate": 0.0,
+      "children_per_parent": {
+        "avg": 250.0,
+        "max": 250
+      },
+      "coverage": 1.0
+    },
+    {
+      "name": "submission_asg_id_fkey",
+      "kind": "fk",
+      "from": {
+        "table": "public.submission",
+        "columns": [
+          "asg_id"
+        ]
+      },
+      "to": {
+        "table": "public.assignment",
+        "columns": [
+          "asg_id"
+        ]
+      },
+      "nullable": false,
+      "null_rate": 0.0,
+      "children_per_parent": {
+        "avg": 5.0,
+        "max": 14
+      },
+      "coverage": 0.993333
+    },
+    {
+      "name": "submission_std_id_fkey",
+      "kind": "fk",
+      "from": {
+        "table": "public.submission",
+        "columns": [
+          "std_id"
+        ]
+      },
+      "to": {
+        "table": "public.std_mst",
+        "columns": [
+          "std_id"
+        ]
+      },
+      "nullable": false,
+      "null_rate": 0.0,
+      "children_per_parent": {
+        "avg": 3.0,
+        "max": 9
+      },
+      "coverage": 0.9575
+    },
+    {
+      "name": "implicit_public_payment_ref_code",
+      "kind": "implicit",
+      "from": {
+        "table": "public.payment",
+        "columns": [
+          "ref_code"
+        ]
+      },
+      "to": {
+        "table": "public.invoice",
+        "columns": [
+          "code"
+        ]
+      },
+      "nullable": false,
+      "null_rate": 0.0,
+      "children_per_parent": {
+        "avg": 0.833333,
+        "max": 5
+      },
+      "coverage": 0.566667
+    }
+  ],
+  "views": [],
+  "pii_veto_overrides": [],
+  "allowlist_candidates": [
+    {
+      "column": "public.dept_mst.dept_nm",
+      "distinct": 8,
+      "max_len": 12
+    },
+    {
+      "column": "public.term_mst.term_cd",
+      "distinct": 8,
+      "max_len": 6
+    }
+  ],
+  "vetoed_candidates": []
+}

@@ -1,0 +1,20 @@
+{
+  "id": "m05",
+  "title": "Change a column comment",
+  "sql": [
+    "COMMENT ON COLUMN enrollment.enrolled_at IS 'The date the student enrolled in the class'"
+  ],
+  "expect": [
+    {
+      "kind": "column_description",
+      "column": "public.enrollment.enrolled_at",
+      "contains": "date the student enrolled"
+    }
+  ],
+  "probes": [
+    "d01",
+    "d02",
+    "d06",
+    "j02"
+  ]
+}

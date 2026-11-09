@@ -1,0 +1,9 @@
+{
+  "id": "m03",
+  "title": "Drop a column",
+  "sql": ["ALTER TABLE crs_mst DROP COLUMN legacy_code"],
+  "expect": [
+    {"kind": "column_absent", "column": "public.crs_mst.legacy_code"},
+    {"kind": "no_attribute_on_column", "column": "public.crs_mst.legacy_code"}
+  ]
+}

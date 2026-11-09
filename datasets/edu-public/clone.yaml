@@ -1,0 +1,22 @@
+# Settings for `python -m lab clone` on the edu-public source. The source holds only invented data.
+# Pass --scale 1.0 --seed 42 on the command line: `lab clone` does not read those two keys from this file yet.
+
+# The reference values below are invented too. Keeping them readable matters because Auto-Ontology
+# infers meaning from low-cardinality samples, and generated text would lower scores unfairly.
+allow_categorical:
+  - public.dept_mst.dept_cd
+  - public.dept_mst.dept_nm
+  - public.term_mst.term_cd
+  - public.std_mst.rec_sts
+  - public.cls_mst.cls_sts
+  - public.enrollment.enr_sts
+  - public.cls_sess.sess_sts
+  - public.attendance.att_sts
+  - public.grade.letter
+  - public.invoice.inv_sts
+  - public.payment.method
+
+override_pii_veto: []
+
+implicit_fk:
+  - "public.payment(ref_code)=public.invoice(code)"

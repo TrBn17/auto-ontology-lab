@@ -1,0 +1,176 @@
+[
+  {
+    "id": "s01",
+    "category": "simple",
+    "question": "How many courses are there? Return only the count.",
+    "gold_sql": "SELECT count(*) FROM crs_mst"
+  },
+  {
+    "id": "s02",
+    "category": "simple",
+    "question": "How many instructors are there? Return only the count.",
+    "gold_sql": "SELECT count(*) FROM instr_mst"
+  },
+  {
+    "id": "s03",
+    "category": "simple",
+    "question": "How many departments are there? Return only the count.",
+    "gold_sql": "SELECT count(*) FROM dept_mst"
+  },
+  {
+    "id": "s04",
+    "category": "simple",
+    "question": "How many classes have been cancelled? Return only the count.",
+    "gold_sql": "SELECT count(*) FROM cls_mst WHERE cls_sts = 'cancelled'"
+  },
+  {
+    "id": "j01",
+    "category": "join",
+    "question": "How many classes does each department's courses have? Return the department code and the count.",
+    "gold_sql": "SELECT c.dept_cd, count(*) FROM cls_mst k JOIN crs_mst c ON c.crs_id = k.crs_id GROUP BY c.dept_cd"
+  },
+  {
+    "id": "j02",
+    "category": "join",
+    "question": "How many enrollments does each course have? Return the course code and the count.",
+    "gold_sql": "SELECT c.crs_code, count(*) FROM enrollment e JOIN cls_mst k ON k.cls_id = e.cls_id JOIN crs_mst c ON c.crs_id = k.crs_id GROUP BY c.crs_code"
+  },
+  {
+    "id": "j03",
+    "category": "join",
+    "question": "How many classes does each instructor teach? Return the instructor id and the count.",
+    "gold_sql": "SELECT i.instr_id, count(*) FROM instr_mst i JOIN cls_instr ci ON ci.instr_id = i.instr_id GROUP BY i.instr_id"
+  },
+  {
+    "id": "j04",
+    "category": "join",
+    "question": "What is the average final score in each term? Return the term code and the average.",
+    "gold_sql": "SELECT t.term_cd, avg(g.final_score) FROM grade g JOIN enrollment e ON e.enr_id = g.enr_id JOIN cls_mst k ON k.cls_id = e.cls_id JOIN term_mst t ON t.term_id = k.term_id GROUP BY t.term_cd"
+  },
+  {
+    "id": "m01",
+    "category": "metric",
+    "question": "What is the overall attendance rate, as present records divided by all attendance records? Return only the fraction.",
+    "gold_sql": "SELECT count(*) FILTER (WHERE att_sts = 'present')::numeric / count(*) FROM attendance"
+  },
+  {
+    "id": "m02",
+    "category": "metric",
+    "question": "What is the attendance rate per class, as present records divided by all attendance records? Return the class id and the fraction.",
+    "gold_sql": "SELECT s.cls_id, count(*) FILTER (WHERE a.att_sts = 'present')::numeric / count(*) FROM attendance a JOIN cls_sess s ON s.sess_id = a.sess_id GROUP BY s.cls_id"
+  },
+  {
+    "id": "m03",
+    "category": "metric",
+    "question": "What is the total outstanding tuition, meaning the amount on unpaid invoices? Return only the total.",
+    "gold_sql": "SELECT sum(amount) FROM invoice WHERE inv_sts = 'unpaid'"
+  },
+  {
+    "id": "m04",
+    "category": "metric",
+    "question": "What is the drop rate, as dropped enrollments divided by all enrollments? Return only the fraction.",
+    "gold_sql": "SELECT count(*) FILTER (WHERE enr_sts = 'dropped')::numeric / count(*) FROM enrollment"
+  },
+  {
+    "id": "d01",
+    "category": "ambiguous_date",
+    "question": "How many students enrolled in 2024? Count enrollments by when the student enrolled. Return only the count.",
+    "gold_sql": "SELECT count(*) FROM enrollment WHERE enrolled_at >= '2024-01-01' AND enrolled_at < '2025-01-01'",
+    "wrong_sql_variants": [
+      "SELECT count(*) FROM enrollment WHERE created_at >= '2024-01-01' AND created_at < '2025-01-01'"
+    ]
+  },
+  {
+    "id": "d02",
+    "category": "ambiguous_date",
+    "question": "How many enrollments happened in March 2024? Return only the count.",
+    "gold_sql": "SELECT count(*) FROM enrollment WHERE enrolled_at >= '2024-03-01' AND enrolled_at < '2024-04-01'",
+    "wrong_sql_variants": [
+      "SELECT count(*) FROM enrollment WHERE created_at >= '2024-03-01' AND created_at < '2024-04-01'"
+    ]
+  },
+  {
+    "id": "d03",
+    "category": "ambiguous_date",
+    "question": "How many enrollment records were entered into the system in 2024? Return only the count.",
+    "gold_sql": "SELECT count(*) FROM enrollment WHERE created_at >= '2024-01-01' AND created_at < '2025-01-01'",
+    "wrong_sql_variants": [
+      "SELECT count(*) FROM enrollment WHERE enrolled_at >= '2024-01-01' AND enrolled_at < '2025-01-01'"
+    ]
+  },
+  {
+    "id": "d04",
+    "category": "ambiguous_date",
+    "question": "How many classes started in 2024? Return only the count.",
+    "gold_sql": "SELECT count(*) FROM cls_mst WHERE start_date >= '2024-01-01' AND start_date < '2025-01-01'"
+  },
+  {
+    "id": "x01",
+    "category": "soft_delete",
+    "question": "How many students do we have? Return only the count.",
+    "gold_sql": "SELECT count(*) FROM std_mst WHERE rec_sts = 'active'",
+    "wrong_sql_variants": [
+      "SELECT count(*) FROM std_mst"
+    ]
+  },
+  {
+    "id": "x02",
+    "category": "soft_delete",
+    "question": "How many students does each department have? Return the department code and the count.",
+    "gold_sql": "SELECT dept_cd, count(*) FROM std_mst WHERE rec_sts = 'active' GROUP BY dept_cd",
+    "wrong_sql_variants": [
+      "SELECT dept_cd, count(*) FROM std_mst GROUP BY dept_cd"
+    ]
+  },
+  {
+    "id": "x03",
+    "category": "soft_delete",
+    "question": "How many students joined in 2024? Return only the count.",
+    "gold_sql": "SELECT count(*) FROM std_mst WHERE rec_sts = 'active' AND created_at >= '2024-01-01' AND created_at < '2025-01-01'",
+    "wrong_sql_variants": [
+      "SELECT count(*) FROM std_mst WHERE created_at >= '2024-01-01' AND created_at < '2025-01-01'"
+    ]
+  },
+  {
+    "id": "x04",
+    "category": "soft_delete",
+    "question": "How many enrollments belong to current students? Return only the count.",
+    "gold_sql": "SELECT count(*) FROM enrollment e JOIN std_mst s ON s.std_id = e.std_id WHERE s.rec_sts = 'active'",
+    "wrong_sql_variants": [
+      "SELECT count(*) FROM enrollment"
+    ]
+  },
+  {
+    "id": "x05",
+    "category": "soft_delete",
+    "question": "What is the total invoiced to current students? Return only the total.",
+    "gold_sql": "SELECT sum(i.amount) FROM invoice i JOIN std_mst s ON s.std_id = i.std_id WHERE s.rec_sts = 'active'",
+    "wrong_sql_variants": [
+      "SELECT sum(amount) FROM invoice"
+    ]
+  },
+  {
+    "id": "n01",
+    "category": "no_fk_join",
+    "question": "How many payments can be matched to an invoice? Return only the count.",
+    "gold_sql": "SELECT count(*) FROM payment p JOIN invoice i ON i.code = p.ref_code"
+  },
+  {
+    "id": "n02",
+    "category": "no_fk_join",
+    "question": "What is the total paid per invoice status? Return the invoice status and the total.",
+    "gold_sql": "SELECT i.inv_sts, sum(p.amount) FROM payment p JOIN invoice i ON i.code = p.ref_code GROUP BY i.inv_sts"
+  },
+  {
+    "id": "n03",
+    "category": "no_fk_join",
+    "question": "What is the total paid per term? Return the term id and the total.",
+    "gold_sql": "SELECT i.term_id, sum(p.amount) FROM payment p JOIN invoice i ON i.code = p.ref_code GROUP BY i.term_id"
+  },
+  {
+    "id": "n04",
+    "category": "no_fk_join",
+    "question": "How many payments were made against void invoices? Return only the count.",
+    "gold_sql": "SELECT count(*) FROM payment p JOIN invoice i ON i.code = p.ref_code WHERE i.inv_sts = 'void'"
+  }
+]
