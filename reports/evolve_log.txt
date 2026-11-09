@@ -1,0 +1,56 @@
+=== m01 start 16:24
+Running evolve...
+  m01: Rename a column that has a foreign key
+Results: D:\projects\auto-ontology-lab\reports\runs\20261108T092404Z
+=== m01 end 18:09
+=== m02 start 18:09
+Running evolve...
+  m02: Add a column to a compiled table
+Results: D:\projects\auto-ontology-lab\reports\runs\20261108T110907Z
+=== m02 end 19:53
+=== m03 start 19:53
+Running evolve...
+  m03: Drop a column
+Results: D:\projects\auto-ontology-lab\reports\runs\20261108T125313Z
+=== m03 end 21:35
+=== m04 start 21:35
+Running evolve...
+  m04: Change a column's data type
+Results: D:\projects\auto-ontology-lab\reports\runs\20261108T143535Z
+=== m04 end 22:34
+=== m05 start 22:34
+Running evolve...
+  m05: Change a column comment
+Results: D:\projects\auto-ontology-lab\reports\runs\20261108T153432Z
+=== m05 end 23:29
+=== m06 start 23:29
+Running evolve...
+  m06: Promote an implicit relationship to a physical foreign key
+Results: D:\projects\auto-ontology-lab\reports\runs\20261108T162930Z
+=== m06 end 00:51
+=== m07 start 00:51
+Running evolve...
+  m07: A new categorical value appears in the data
+Results: D:\projects\auto-ontology-lab\reports\runs\20261108T175109Z
+=== m07 end 01:47
+=== m08 start 01:47
+Running evolve...
+  m08: Create a new table (positive control)
+Results: D:\projects\auto-ontology-lab\reports\runs\20261108T184734Z
+=== m08 end 02:47
+=== audit start 02:47
+Running audit...
+Results: D:\projects\auto-ontology-lab\reports\runs\20261108T194801Z
+Not usable as headline numbers; failed the health check: audit
+=== audit end 05:12
+=== audit retry start 06:45
+Running audit...
+Results: D:\projects\auto-ontology-lab\reports\runs\20261108T234558Z
+Not usable as headline numbers; failed the health check: audit
+=== audit retry end 07:05
+=== audit retry start 07:36
+Running audit...
+Results: D:\projects\auto-ontology-lab\reports\runs\20261109T003649Z
+Not usable as headline numbers; failed the health check: audit
+=== audit retry end 08:19
+# Note: the 06:45 retry (20261108T234558Z) is void; a full pytest run had reset the lab_ro password mid-run.
