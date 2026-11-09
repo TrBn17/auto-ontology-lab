@@ -1,178 +1,157 @@
 <div align="center">
   <img src="https://img3.pixhost.to/images/6977/800059020_image.png" alt="Auto-Ontology Lab Banner" width="100%" />
-
-  <br />
-
-  <h1>🧪 Auto-Ontology Lab</h1>
-
-  <p>
-    <img src="https://img.shields.io/badge/PostgreSQL-16%2B-336791?style=for-the-badge&logo=postgresql&logoColor=white" alt="PostgreSQL 16+" />
-    <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python" />
-    <img src="https://img.shields.io/badge/Synthetic_Data-Privacy_Preserving-F59E0B?style=for-the-badge" alt="Synthetic Data" />
-    <img src="https://img.shields.io/badge/Auto--Ontology-Semantic_Compiler-10B981?style=for-the-badge" alt="Auto-Ontology" />
-  </p>
+  <h1>Auto-Ontology Lab</h1>
 </div>
 
----
+Test [NVIDIA Auto-Ontology](https://github.com/NVIDIA/auto-ontology) on **your own PostgreSQL schema** without exposing your data. The lab clones your database into a synthetic copy, builds the ontology on that copy, and measures four things:
 
-An independent, reproducible evaluation of [NVIDIA Auto-Ontology](https://github.com/NVIDIA/auto-ontology) at a pinned commit (`c447003f`): does the ontology it builds find the schema, answer questions correctly, survive schema change, and handle questions and data it should not touch?
+| Suite | Question it answers |
+|---|---|
+| `discover` | Does the ontology find your tables, foreign keys and undeclared joins? |
+| `ask` | Does its agent answer business questions correctly, compared with giving an LLM the schema? |
+| `evolve` | After a schema migration, does the ontology update and keep the edits your reviewers made? |
+| `audit` | Does it decline questions your data cannot answer, and does it keep PII out of its catalog? |
 
-## Results
+## How it works
 
-Full tables, every failed question with its SQL, and the freeze are in [`reports/RESULTS.md`](reports/RESULTS.md). Screenshots of the runs are in [`reports/evidence/`](reports/evidence/). Dataset: `edu-public`, a synthetic 15-table LMS database.
+```
+your database ──lab clone (read-only)──▶ synthetic copy ──lab import──▶ Auto-Ontology ──lab measure──▶ lab report
+   (untouched)                              (in the lab's Postgres)                                       reports/RESULTS.md
+```
+
+- **Your database is only read, once**, by `lab clone`: schema plus statistics (`pg_stats`, value ranges, key cardinalities), through a read-only session with a 60 s statement timeout. Free text and PII-named columns are never read.
+- **Everything else runs on the synthetic copy**: same tables, columns, keys, comments and distributions, invented values. Auto-Ontology and its LLM never see real data.
+- **Destructive steps are fenced.** `evolve` alters the schema and every suite restores a snapshot (T0) with `DROP DATABASE`; both refuse any database without the lab's `lab_synth:` marker.
+
+## Results on the bundled dataset
+
+`edu-public` is a synthetic 15-table LMS database (41,285 rows) with a known ground truth. Upstream pinned at `c447003f`.
 
 | Suite | Result |
 |---|---|
-| `discover` | 18/18 foreign keys, 0 invented relationships; a term on 14/15 tables, two of them with the wrong meaning; the one undeclared join missed |
-| `ask` (25 questions × 3 runs) | Agent 73% (95% CI 57–88) vs 72% for a schema-only prompt and 87% with column comments; about 8× slower per answer |
-| `evolve` (8 schema changes) | Re-ingest and compile keep 6/6 human edits but miss 3–4 of 8 changes; reset picks up 7/8 and keeps 1/6 edits, every time |
+| `discover` | 18/18 foreign keys, 0 invented relationships; a term on 14/15 tables, two with the wrong meaning; the one undeclared join missed |
+| `ask` (25 questions × 3 runs) | Agent 73% (95% CI 57–88) vs 72% for a schema-only prompt and 87% with column comments; about 8× slower |
+| `evolve` (8 schema changes) | Re-ingest keeps 6/6 edits but misses 3–4 of 8 changes; reset reflects 7/8 and keeps 1/6 edits |
 | `audit` | 0 of 20 unanswerable questions declined; raw emails and phones stay in the catalog with PII detection on |
 
-Running it needed a request-format proxy (upstream issue #440) and a non-default model; both are disclosed in the report. See [`docs/FINDINGS.md`](docs/FINDINGS.md).
+Every table, failed question and SQL: [`reports/RESULTS.md`](reports/RESULTS.md). Screenshots: [`reports/evidence/`](reports/evidence/). Upstream issues found on the way: [`docs/FINDINGS.md`](docs/FINDINGS.md).
 
-## Documentation
+## Quick start (bundled dataset)
 
-- [`PLAN.md`](PLAN.md): the three steps (prepare, measure, report), decisions and milestones.
-- [`docs/FINDINGS.md`](docs/FINDINGS.md): upstream behaviour found while running the lab.
-- [`docs/UPSTREAM_ARCHITECTURE.md`](docs/UPSTREAM_ARCHITECTURE.md): upstream architecture from source, with `file:line` references.
-- [`docs/STEP1_CLONE_PLAN.md`](docs/STEP1_CLONE_PLAN.md): the `lab clone` spec and acceptance checks A1–A13.
-
-## Quick start
+Requirements: Docker, Python 3.10+, an NVIDIA API key.
 
 ```powershell
-git clone https://github.com/NVIDIA/auto-ontology.git; git -C auto-ontology checkout c447003f   # the pinned stack
-cp .env.example .env                                   # add your own keys; config/freeze.yaml holds the models used here
-docker compose -f auto-ontology/docker-compose.yml -f config/compose.llm-proxy.yml up -d   # stack + request-format proxy (see the file's header)
-python -m lab doctor
-python -m lab import --dataset edu-public
-python -m lab measure --dataset edu-public            # discover, ask, evolve, audit
-python -m lab report --dataset edu-public             # writes reports/RESULTS.md
-```
-
----
-
-## 🚀 Step 1: `lab clone` — Privacy-Preserving Synthetic DB Generator
-
-`python -m lab` clones a production PostgreSQL schema and statistical shape into a 100% synthetic PostgreSQL database (`lab_synth`) and dataset directory (`datasets/<id>/`) without leaking any free-text or PII values from the source database.
-
-### 1. Prerequisites
-
-```bash
 pip install "psycopg[binary]>=3.1" "numpy>=1.26" "faker>=24.0" "pytest>=8.0"
+
+# 1. The pinned Auto-Ontology stack, plus the request-format proxy (upstream issue #440)
+git clone https://github.com/NVIDIA/auto-ontology.git
+git -C auto-ontology checkout c447003f
+docker compose -f auto-ontology/docker-compose.yml -f config/compose.llm-proxy.yml up -d
+
+# 2. Settings: copy, then fill in the tokens minted in the Auto-Ontology UI (admin and viewer)
+cp .env.example .env
+
+# 3. Run
+python -m lab doctor                           # stack matches config/freeze.yaml?
+python -m lab import  --dataset edu-public     # load, compile, save snapshot T0
+python -m lab measure --dataset edu-public     # all four suites (hours: see RESULTS.md)
+python -m lab report  --dataset edu-public     # writes reports/RESULTS.md
 ```
 
- Ensure the local Docker stack (`postgres` container on port `5432`) is running if `pg_dump` is not installed on the host.
+For a quick smoke test (about 15 minutes, most of it restoring T0): `python -m lab measure --dataset edu-public --only ask --limit 3 --runs 1`.
 
-> [!IMPORTANT]
-> **Password Security (§1.4)**: Never pass a database password on the command line (`sys.argv`). `python -m lab` inspects `sys.argv` on startup and immediately aborts with exit code `1` if any argument contains a password in a URL (`postgresql://user:pass@host/db`) or key-value (`password=...`) format. Always pass credentials via environment variables using `--from-env` and `--to-env`.
+## Run it on your own database
 
----
+### 1. Clone (reads your database, writes nothing to it)
 
-### 2. Recommended Workflow
-
-#### Step 2.1: Profile Only & Review Categorical Candidates (`--profile-only`)
-
-Connect to the source database using a read-only role (every source connection enforces `SET default_transaction_read_only = on; SET statement_timeout = '60s';`) and generate `profile.json` + sanitized `ddl/` files:
+Set `LAB_SOURCE_DSN` (a read-only role on your database) and `LAB_TARGET_DSN` (the lab's Postgres) in `.env`, then:
 
 ```powershell
-$env:SRC_DSN = "postgresql://ro_user:secret@prod-host:5432/source_db"
+# Look first: writes profile.json and lists which low-cardinality columns could keep their real values
+python -m lab clone --from-env LAB_SOURCE_DSN --out datasets/my-db --profile-only
 
-python -m lab clone `
-  --from-env SRC_DSN `
-  --out datasets/my_synth `
-  --profile-only
+# Then the full clone
+python -m lab clone --from-env LAB_SOURCE_DSN --to-env LAB_TARGET_DSN --out datasets/my-db `
+  --allow-categorical public.orders.status,public.customer.tier `
+  --implicit-fk "public.payment(ref_code)=public.invoice(code)" `
+  --scale 0.1 --seed 42
 ```
 
-This command:
-1. Introspects `pg_catalog` and `pg_stats` (`null_frac`, `n_distinct`), numeric/date bounds, character lengths, enum labels, `CHECK` constraints, PK/UNIQUE/partial-unique indexes, and FK cardinalities.
-2. Automatically skips system/migration tables (`_prisma_migrations`, `schema_migrations`, `alembic_version`, `flyway_schema_history`, `django_migrations`, `knex_migrations`, plus any `--exclude <regex>`).
-3. Prints two tables to stdout:
-   - **Allowlist Candidates**: Low-cardinality (`1 <= n_distinct <= 50`) text/varchar columns not matched by the PII column-name filter.
-   - **Vetoed Candidates (Blocked by PII Filter)**: Low-cardinality columns whose names match the PII pattern (`email|phone|mobile|name|address|street|dob|birth|ssn|tax|passport|iban|card` plus `--pii-extra`).
+- `--allow-categorical`: status-like columns whose real values (not free text) the copy should keep. Columns whose names look like PII are refused.
+- `--implicit-fk`: joins your application relies on but no foreign key declares. They become ground truth for `discover`.
+- Exit code `0` passed, `1` failed, `2` passed but some `CHECK` constraints could not be satisfied by synthetic rows and were dropped on the copy. Review them in `validate_report.json`, then record the review with `python -m lab ack-degraded --out datasets/my-db --reviewer <you>` (it still exits `2`, and writes `degraded_ack.json`).
 
-Inspect `datasets/my_synth/profile.json` and choose which non-PII categorical columns should preserve their exact value frequencies via `--allow-categorical`.
+### 2. Write the answer key
 
-#### Step 2.2: Full Clone (`profile` $\rightarrow$ `generate` $\rightarrow$ `load` $\rightarrow$ `validate`)
+The lab scores against answers only someone who knows the data can write. Copy the format from `datasets/edu-public/`:
 
-```powershell
-$env:SRC_DSN = "postgresql://ro_user:secret@prod-host:5432/source_db"
-$env:TGT_DSN = "postgresql://postgres:secret@localhost:5432/my_synth_db"
-
-python -m lab clone `
-  --from-env SRC_DSN `
-  --to-env TGT_DSN `
-  --out datasets/my_synth `
-  --allow-categorical public.course.delivery_mode,public.enrollment.status `
-  --implicit-fk "public.audit_log(actor_code)=public.staff(staff_code)" `
-  --scale 0.1 `
-  --seed 42 `
-  --drop
-```
-
-What `lab clone` produces inside `datasets/my_synth/`:
-- `profile.json` — Sanitized statistical profile and `pii_veto_overrides` audit log.
-- `ddl/01_types.sql`, `ddl/02_tables.sql`, `ddl/03_fkeys.sql`, `ddl/04_views.sql` — Sanitized DDL with RLS (`ENABLE/FORCE ROW LEVEL SECURITY`, `CREATE POLICY`), triggers (`CREATE TRIGGER`, `ENABLE/DISABLE TRIGGER`), `COMMENT ON`, `OWNER TO`, `GRANT`/`REVOKE`, and `TABLESPACE` stripped.
-- `data/<schema>.<table>.csv` & `data/_load.sql` — Seed-deterministic synthetic rows in shuffled order (never sorted by PK/date) plus sequence `setval()` calls.
-- `manifest.json` & `.lab-dataset` — Dataset metadata read by `lab import`.
-- `validate_report.json` — Detailed results for acceptance checks `A1`–`A9` and `A11`–`A13`.
-
----
-
-### 3. CLI Subcommands & Flags
-
-You can run the full pipeline via `clone` or execute individual stages:
-
-| Subcommand | Description |
-|---|---|
-| `python -m lab clone` | End-to-end pipeline: `profile` $\rightarrow$ `generate` $\rightarrow$ `load` $\rightarrow$ `validate`. Supports `--profile-only` and `--dry-run`. |
-| `python -m lab profile` | Introspect source DB and write `profile.json` and `ddl/*.sql`. |
-| `python -m lab generate` | Generate synthetic CSVs, `_load.sql`, and `manifest.json` purely from `profile.json` (**never connects to the source DB**). |
-| `python -m lab load` | Create/recreate target DB (guarded by `COMMENT ON DATABASE <db> IS 'lab_synth:<id>'`), apply DDL & CSVs, run `ANALYZE`, and grant `lab_ro`. |
-| `python -m lab validate` | Run acceptance checks `A1`–`A9`, `A11`–`A13` against the target DB and write `validate_report.json`. |
-| `python -m lab ack-degraded` | Record human reviewer acknowledgment (`degraded_ack.json`) when complex `CHECK` constraints are dropped (`exit code 2`). |
-
-#### Key Flags
-
-- `--from-env VAR` / `--to-env VAR`: Environment variable name containing the source or target PostgreSQL DSN.
-- `--allow-categorical schema.table.col[,...]`: Opt-in allowlist for reading `GROUP BY` value frequencies on low-cardinality text columns.
-- `--pii-extra REGEX`: Additional column-name regex patterns to treat as PII.
-- `--override-pii-veto "schema.table.col=<reason>"`: Override a false-positive PII column name (e.g., `stage_name` or `card_suit`) with a mandatory audit reason recorded in `profile.json["pii_veto_overrides"]`.
-- `--implicit-fk "schema.child(col1,col2)=schema.parent(pk1,pk2)"`: Declare an implicit foreign key without a `pg_constraint` entry; enforces target uniqueness and 100% referential integrity.
-- `--exclude REGEX`: Additional table-name regex to exclude from profiling and cloning.
-- `--scale FLOAT` / `--max-rows INT` / `--seed INT` / `--locale LOCALE`: Control row scaling (`min(max_rows, min(row_count, max(50, round(row_count * scale))))`), RNG seed, and Faker locale.
-- `--drop`: Drop and recreate the target database **only** if it already carries the `COMMENT ON DATABASE <db> IS 'lab_synth:<id>'` safety marker.
-
----
-
-### 4. Exit Codes & Degraded `CHECK` Acknowledgment (§1.5)
-
-| Exit Code | Status | Meaning |
+| File | Suite | What you write |
 |---|---|---|
-| `0` | `passed` | All checks passed and zero `CHECK` constraints were dropped. |
-| `2` | `degraded` | Data loaded and validated, but one or more non-constructive `CHECK` constraints fell below `--check-min-repair-rate` (default `0.20`), were dropped on the target, and are listed in `validate_report.json["degraded_checks"]`. |
-| `1` | `failed` | Privacy boundary violation, schema/FK/NULL/distribution check failure, unbreakable non-nullable FK cycle, or password in `argv`. |
+| `questions.json` | `ask` | Business questions with gold SQL |
+| `metadata.json` | `ask` | Column descriptions, for the `ddl+meta` baseline |
+| `evolve.json`, `mutations/*.json` | `evolve` | Schema changes to try and the reviewer edits to protect |
+| `unanswerable.json` | `audit` | Questions your schema cannot answer |
 
-When `lab clone` exits with code `2`, inspect `degraded_checks` in `datasets/<id>/validate_report.json` and acknowledge the reviewed constraints:
-
-```powershell
-python -m lab ack-degraded --out datasets/my_synth --reviewer "your-handle"
-```
-
----
-
-### 5. Importing a Cloned Dataset into Auto-Ontology
+Gold SQL runs on the synthetic copy, so it may only rely on what cloning preserves: allowlisted values, foreign keys, date ranges. Check it before any LLM runs:
 
 ```powershell
-python -m lab import --dataset my_synth
+python -m lab import  --dataset my-db        # about 17 minutes for 15 tables: ingest + LLM compilation
+python -m lab measure --dataset my-db --check-gold
 ```
 
----
+`--check-gold` also flags questions that cannot tell right from wrong on your copy (a known wrong query returns the same result as the gold one). Rewrite or drop those.
 
-### 6. Running the Test Suite
+### 3. Measure and report
+
+```powershell
+python -m lab measure --dataset my-db               # or --only discover|ask|evolve|audit
+python -m lab report  --dataset my-db              # writes reports/RESULTS_my-db.md
+```
+
+`report` exits `3` when a suite was unhealthy (more than 5% of answers lost to timeouts or errors); the file is still written and says which.
+
+### Tested on
+
+The "own database" path above was run end to end on 2026-11-09, on two source databases other than the published one:
+
+| Source | Tables | `clone` | `import` | `--check-gold` | `discover` | `ask` (3 questions × 1 run) |
+|---|---|---|---|---|---|---|
+| edu-public source, cloned at `--scale 0.1` | 15 | 12/12 checks, exit 0 | 17 min; 14 terms, 18/18 FKs | 59/60 usable (`x07` cannot discriminate at 10% scale) | entities F1 97%, FKs 18/18, undeclared join missed | 3/3 in every mode; gateway median 249 s |
+| `hahlex_edu` | 45 | exit 2: 8 `CHECK` constraints dropped, acknowledged with `ack-degraded` | not run | — | — | — |
+
+`evolve` and `audit` were not re-run on these copies; they take hours.
+
+## Commands
+
+| Command | Does |
+|---|---|
+| `lab clone` | `profile` → `generate` → `load` → `validate` in one go |
+| `lab profile` / `generate` / `load` / `validate` | The clone steps one at a time. `generate` never connects to the source |
+| `lab doctor` | Checks the running stack against `config/freeze.yaml` |
+| `lab import` | Registers the copy with Auto-Ontology, compiles it, saves snapshot T0 |
+| `lab measure` | Runs the suites from T0 (`--only`, `--runs`, `--limit`, `--modes`, `--mutation`, `--check-gold`) |
+| `lab report` | Writes the results file from the newest run of each suite of that dataset |
+
+Run any of them with `python -m lab <command> --help` for every flag.
+
+## Limits
+
+- PostgreSQL only, for both the source and the copy.
+- Synthetic values keep distributions, not content: a question about one specific customer will not have the real answer.
+- Writing the answer key is manual and is most of the work.
+- Never put a password on the command line: `python -m lab` exits if an argument contains one. Use the `.env` variables.
+
+## Tests
 
 ```powershell
 python -m pytest lab -q
 ```
 
 > [!WARNING]
-> The acceptance tests in `lab/tests/acceptance/` use the stack's live Postgres and reset the `lab_ro` password. Do not run them while a measurement or demo is in progress.
+> The acceptance tests in `lab/tests/acceptance/` use the stack's live Postgres and reset the `lab_ro` password. Do not run them while a measurement is in progress.
+
+## More
+
+- [`PLAN.md`](PLAN.md): design decisions and milestones.
+- [`docs/STEP1_CLONE_PLAN.md`](docs/STEP1_CLONE_PLAN.md): the `lab clone` spec and acceptance checks A1–A13.
+- [`docs/UPSTREAM_ARCHITECTURE.md`](docs/UPSTREAM_ARCHITECTURE.md): how Auto-Ontology works, with `file:line` references.
